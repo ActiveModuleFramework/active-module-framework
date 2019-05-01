@@ -10,7 +10,7 @@ import { SQLiteDB } from './SQLiteDB';
  */
 export class LocalDB extends SQLiteDB{
 	/**
-	 *
+	 *セッション用DBの初期化
 	 *
 	 * @memberof LocalDB
 	 */

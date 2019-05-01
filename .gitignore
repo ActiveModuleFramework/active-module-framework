@@ -3,3 +3,4 @@ package-lock.json
 *.d.ts
 *.js
 *.map
+!ecosystem.config.js
