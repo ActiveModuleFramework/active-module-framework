@@ -1,0 +1,25 @@
+{
+	"name": "active-module-framework",
+	"version": "1.0.0",
+	"description": "モジュール式WebAPIフレームワーク",
+	"keywords": [],
+	"private": true,
+	"author": "SoraKumo",
+	"license": "MIT",
+	"main": "index.js",
+	"types": "index.d.ts",
+	"dependencies": {
+		"capture-console": "^1.0.1",
+		"express": "^4.16.4",
+		"parse5": "^5.1.0",
+		"sqlite3": "^4.0.6",
+	    "sprintf": "^0.1.5",
+		"@types/sqlite3": "^3.1.5"
+	},
+	"devDependencies": {
+		"@types/sha256": "^0.2.0",
+		"@types/express": "^4.16.1",
+		"@types/node": "^11.13.4",
+		"@types/sprintf": "^0.1.0"
+	}
+}
