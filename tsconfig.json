@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+    	"target": "es2017",
+    	"module": "commonjs",
+		"rootDir": "./src/",
+		"outDir":"./",
+		"declaration": true,
+    	"sourceMap": true,
+		"composite": true
+    },
+	"exclude": ["*.d.ts","lib/*.d.ts"]
+}
