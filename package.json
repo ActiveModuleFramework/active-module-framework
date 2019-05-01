@@ -1,6 +1,6 @@
 {
 	"name": "active-module-framework",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "モジュール式WebAPIフレームワーク",
 	"keywords": [],
 	"private": true,
@@ -8,12 +8,16 @@
 	"license": "MIT",
 	"main": "index.js",
 	"types": "index.d.ts",
+	"bin": {
+		"amf-init": "bin/amf-init"
+	},
 	"dependencies": {
 		"capture-console": "^1.0.1",
 		"express": "^4.16.4",
 		"parse5": "^5.1.0",
 		"sqlite3": "^4.0.6",
-	    "sprintf": "^0.1.5",
+		"sprintf": "^0.1.5",
+		"fs-extra": "^7.0.1",
 		"@types/sqlite3": "^3.1.5"
 	},
 	"devDependencies": {

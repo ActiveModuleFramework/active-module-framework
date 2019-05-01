@@ -1,0 +1,703 @@
+@charset "UTF-8";
+[data-jsw="Window"] {
+  box-sizing: border-box;
+}
+
+[data-jsw="Window"][data-jsw-visible="false"] {
+  display: none;
+}
+
+[data-jsw="Window"]:not([data-jsw-type="Frame"]) {
+  overflow: hidden;
+}
+
+[data-jsw="Window"][data-jsw-type="Frame"]:not([data-jsw-stat="maximize"]) {
+  border-radius: 10px 10px 0px 0px;
+  border: solid 1px;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.4);
+}
+
+[data-jsw="Window"] > [data-jsw-type="border"] {
+  position: absolute;
+  user-select: none;
+}
+
+[data-jsw="Window"][data-jsw-stat="maximize"] > [data-jsw-type="border"] {
+  display: none;
+  box-sizing: border-box;
+}
+
+[data-jsw="Window"][data-jsw-active="true"] > [data-jsw-type="title"] {
+  background-color: #5577dd;
+  color: white;
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] {
+  border-radius: 10px 10px 0px 0px;
+  display: flex;
+  position: absolute;
+  cursor: move;
+  background-color: #aabbee;
+  overflow: hidden;
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] [data-jsw-type="text"] {
+  flex: 1;
+  overflow: hidden;
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", "Lucida Sans", Arial, sans-serif;
+  padding: 0px 0.5em;
+  align-items: center;
+  display: flex;
+  white-space: nowrap;
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"] {
+  display: inline-block;
+  cursor: default;
+  background-size: 100% 100%;
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"]:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"][data-jsw-kind="min"] {
+  background-image: url("images/min.svg");
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"][data-jsw-kind="restore"] {
+  background-image: url("images/min.svg");
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"][data-jsw-kind="max"] {
+  background-image: url("images/max.svg");
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"][data-jsw-kind="close"] {
+  background-image: url("images/close.svg");
+}
+
+[data-jsw="Window"] > [data-jsw-type="title"] > [data-jsw-type="icon"][data-jsw-kind="normal"] {
+  background-image: url("images/normal.svg");
+}
+
+[data-jsw-scale="auto"] {
+  white-space: normal;
+}
+
+[data-jsw-type="client"] {
+  position: absolute;
+  overflow: hidden;
+  background-color: whitesmoke;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  left: 0px;
+}
+
+@keyframes JSWminimize {
+  100% {
+    height: 0px;
+  }
+}
+
+@keyframes JSWrestore {
+  0% {
+    height: 0px;
+  }
+}
+
+@keyframes JSWmaximize {
+  10% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes JSWmaxrestore {
+  0% {
+    transform: scale(2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes JSWclose {
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@keyframes JSWFrameShow {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Splitter用設定  */
+[data-jsw-style="SplitterView"] {
+  display: flex;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='ew'] {
+  align-items: center;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='ew'] [data-kind="SplitterMenu"] {
+  right: 0;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='we'] {
+  align-items: center;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='ns'] {
+  justify-content: center;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='sn'] {
+  justify-content: center;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type='sn'] [data-kind="SplitterMenu"] {
+  bottom: 0;
+}
+
+[data-jsw-style="SplitterView"] [data-jsw-style="Splitter"] {
+  background-color: #aaaaaa;
+  border: outset 2px #b8b7b7;
+  user-select: none;
+}
+
+[data-jsw-style="SplitterView"] [data-kind="SplitterMenu"] {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.7);
+  opacity: 0.7;
+  background-repeat: no-repeat;
+  width: 32px;
+  height: 32px;
+  margin: 2px;
+  cursor: pointer;
+  background-image: url("images/menu.svg");
+  flex-grow: 0;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type="ns"] [data-jsw-style="Splitter"],
+[data-jsw-style="SplitterView"][data-splitter-type="sn"] [data-jsw-style="Splitter"] {
+  cursor: ns-resize;
+}
+
+[data-jsw-style="SplitterView"][data-splitter-type="we"] [data-jsw-style="Splitter"],
+[data-jsw-style="SplitterView"][data-splitter-type="ew"] [data-jsw-style="Splitter"] {
+  cursor: ew-resize;
+}
+
+/* TreeView用設定 */
+@keyframes treeOpen {
+  0% {
+    margin-top: -1.5em;
+    opacity: 0.2;
+  }
+  100% {
+    margin-top: 0%;
+  }
+}
+
+@keyframes treeClose {
+  0% {
+    margin-top: 0;
+    opacity: 0.6;
+  }
+  90% {
+    margin-top: -2em;
+    opacity: 0.6;
+  }
+  100% {
+    margin-top: -100%;
+    transform: scaleY(0);
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+[data-jsw-style="TreeView"] {
+  overflow: auto !important;
+  user-select: none;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] > [data-kind="TreeRow"]:first-child:hover {
+  border-bottom: black 1px solid;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] > [data-kind="TreeRow"][data-drag='over'] {
+  background-color: rgba(80, 233, 149, 0.2);
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] [data-kind="TreeItem"] {
+  padding-left: 1em;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeRow"]:first-child {
+  cursor: pointer;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeRow"] {
+  display: flex;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeChild"] {
+  flex: 1;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeBody"] {
+  flex: 1;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] > [data-kind="TreeRow"]:nth-child(2) > [data-kind="TreeChild"] {
+  overflow: hidden;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] > div > [data-kind="TreeIcon"] {
+  background-repeat: no-repeat;
+  width: 16px;
+  height: 16px;
+  margin: 2px;
+  vertical-align: middle;
+  cursor: default;
+  background-image: url("images/tclose.svg");
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"][data-stat="close"] > [data-kind="TreeRow"] > [data-kind="TreeIcon"] {
+  background-image: url("images/tclose.svg");
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"][data-stat="open"] > [data-kind="TreeRow"] > [data-kind="TreeIcon"] {
+  background-image: url("images/topen.svg");
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"][data-stat="alone"] > [data-kind="TreeRow"] > [data-kind="TreeIcon"] {
+  background-image: url("images/talone.svg");
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"] > [data-kind="TreeRow"]:first-child {
+  cursor: pointer;
+}
+
+[data-jsw-style="TreeView"] [data-kind="TreeItem"][data-select="true"] > [data-kind="TreeRow"]:first-child {
+  background-color: rgba(80, 80, 233, 0.2);
+  flex: 1;
+}
+
+/* Panel用設定 */
+[data-jsw-style="Panel"] {
+  box-sizing: border-box;
+  user-select: none;
+  background-color: darkgrey;
+  border-color: lightgray dimgrey dimgrey lightgray;
+}
+
+/*ListView用スタイル*/
+[data-jsw-style="ListView"] {
+  user-select: none;
+  overflow-x: auto !important;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderBack"] {
+  position: absolute;
+  height: 30px;
+  width: 100%;
+  min-width: 100%;
+  background-image: linear-gradient(180deg, rgba(144, 197, 240, 0.9) 0%, rgba(63, 164, 201, 0.9) 50%, rgba(100, 122, 221, 0.9) 100%);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] {
+  position: relative;
+  right: 0px;
+  left: 0px;
+  height: 30px;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListResizers"] {
+  overflow: hidden;
+  position: absolute;
+  pointer-events: none;
+  height: 100%;
+  width: 100%;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListResizers"] div {
+  position: absolute;
+  width: 10px;
+  height: 100%;
+  cursor: ew-resize;
+  pointer-events: all;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListHeaders"] {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex-grow: 0;
+  flex-shrink: 0;
+  overflow-x: visible;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListHeaders"] > div {
+  box-sizing: border-box;
+  display: flex;
+  border: #2e629e 1px;
+  border-style: none solid none solid;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+  flex-grow: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListHeaders"] > div:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListHeaders"] > div[data-sort="asc"] {
+  border-top: 1px rgba(255, 100, 100, 0.8) double;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListHeaderArea"] > [data-kind="ListHeaders"] > div[data-sort="desc"] {
+  border-bottom: 1px rgba(255, 100, 100, 0.8) double;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] {
+  white-space: nowrap;
+  position: relative;
+  display: flex;
+  height: calc(100% - 30px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] {
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"] {
+  padding: 2px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  border: transparent solid 1px;
+  border-left: rgba(158, 155, 153, 0.2) solid 1px;
+  border-bottom: rgba(158, 155, 153, 0.5) solid 1px;
+  height: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: 0.1s;
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"]:nth-child(odd) {
+  background-color: rgba(63, 164, 201, 0.2);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"]:nth-child(even) {
+  background-color: rgba(63, 201, 183, 0.2);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-hover="true"]:nth-child(odd), [data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-drag="over"]:nth-child(odd) {
+  background-color: rgba(63, 164, 201, 0.4);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-hover="true"]:nth-child(even), [data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-drag="over"]:nth-child(even) {
+  background-color: rgba(63, 201, 183, 0.4);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-select="true"]:nth-child(odd) {
+  background-color: rgba(64, 160, 250, 0.6);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-select="true"]:nth-child(even) {
+  background-color: rgba(58, 180, 200, 0.6);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-hover="true"][data-item-select="true"]:nth-child(odd) {
+  background-color: rgba(64, 160, 250, 0.7);
+}
+
+[data-jsw-style="ListView"] > [data-kind="ListItemArea"] [data-kind="ListColumn"] > [data-kind="ListCell"][data-item-hover="true"][data-item-select="true"]:nth-child(even) {
+  background-color: rgba(58, 180, 200, 0.7);
+}
+
+@keyframes nsDrawerShow {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes nsDrawerClose {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes snDrawerShow {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes snDrawerClose {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes weDrawerShow {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes weDrawerClose {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes ewDrawerShow {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ewDrawerClose {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+[data-kind="Drawer"] {
+  background-color: rgba(240, 240, 240, 0.6);
+}
+
+[data-kind="DrawerItem"] {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  margin: 0.2em;
+  margin-bottom: 0.5em;
+  padding: 0.5em;
+  height: 2em;
+}
+
+[data-kind="DrawerItem"] > [data-kind="DrawerIcon"] {
+  background-size: 100% 100%;
+  height: 100%;
+  width: 1.3em;
+  margin-right: 0.4em;
+}
+
+[data-kind="DrawerItem"] > [data-kind="DrawerText"] {
+  flex: 1;
+  font-size: 2em;
+}
+
+[data-kind="DrawerItem"]:hover {
+  background-color: #eeeeee;
+  color: #5c6bb6;
+}
+
+/* Button用設定 */
+[data-jsw-style="Button"] {
+  display: flex;
+  background-color: transparent;
+}
+
+[data-jsw-style="Button"] > div {
+  cursor: pointer;
+  white-space: nowrap;
+  margin: 2px;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+  border-width: 1px;
+  border-style: solid;
+  border-color: gainsboro dimgrey dimgrey gainsboro;
+  border-radius: 10px;
+  color: white;
+  background-image: linear-gradient(120deg, rgba(156, 159, 161, 0.9) 0%, #74757a 100%);
+}
+
+[data-jsw-style="Button"] > div:hover, [data-jsw-style="Button"] > div:focus {
+  background-image: linear-gradient(120deg, rgba(108, 155, 194, 0.9) 0%, #6275df 100%);
+  font-weight: bold;
+}
+
+[data-jsw-style="Button"] > div:active {
+  border-style: inset;
+}
+
+[data-jsw-style="Button"] > div > span {
+  display: block;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+[data-jsw-style="Button"] > div > img {
+  height: 100%;
+  width: 100%;
+}
+
+/* Label用設定 */
+[data-jsw-style="Label"] {
+  display: flex;
+  overflow: visible;
+  background-color: transparent;
+}
+
+[data-jsw-style="Label"] > span {
+  white-space: nowrap;
+}
+
+/* TextBox用設定 */
+[data-jsw-style="TextBox"] {
+  border: inset;
+  display: flex;
+}
+
+[data-jsw-style="TextBox"] > div {
+  flex: 1;
+  position: relative;
+}
+
+[data-jsw-style="TextBox"] > div > input {
+  user-select: all;
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.8);
+  min-height: 2em;
+  padding: 0.2em;
+  border: none;
+  width: 100%;
+}
+
+[data-jsw-style="TextBox"] > div > div {
+  white-space: nowrap;
+  position: absolute;
+  padding: 0.2em;
+}
+
+[data-jsw-style="TextBox"] > img {
+  height: 100%;
+}
+
+/* CheckBox用設定 */
+[data-jsw-style="CheckBox"] {
+  display: flex;
+  white-space: nowrap;
+}
+
+[data-jsw-style="CheckBox"] > label:hover {
+  background-color: rgba(186, 190, 245, 0.274);
+}
+
+/*
+	TableForm
+*/
+[data-jsw-style="TableFormView"] {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5em;
+  overflow: auto;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child {
+  flex: 1;
+  justify-content: space-between;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div:hover {
+  cursor: default;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div {
+  width: 100%;
+  padding: 0.3em;
+  box-sizing: border-box;
+  display: table;
+  border-spacing: 0 0.3em;
+  border-collapse: separate;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div > :hover {
+  background: #aabbee;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div > div,
+[data-jsw-style="TableFormView"] > div:first-child > div > label {
+  background: rgba(230, 230, 230, 0.4);
+  display: table-row;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div > div > div,
+[data-jsw-style="TableFormView"] > div:first-child > div > label > div {
+  vertical-align: middle;
+  display: table-cell;
+  padding: 0.3em 0.5em;
+}
+
+[data-jsw-style="TableFormView"] > div:first-child > div > div > div:first-child,
+[data-jsw-style="TableFormView"] > div:first-child > div > label > div:first-child {
+  white-space: nowrap;
+}
+
+[data-jsw-style="TableFormView"] > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.2em;
+}

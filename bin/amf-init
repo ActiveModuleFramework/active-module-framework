@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+const fs = require('fs-extra')
+console.log("ActiveModuleFramework 初期ファイル配置処理")
+fs.copySync('node_modules/active-module-framework/resource', '.')
