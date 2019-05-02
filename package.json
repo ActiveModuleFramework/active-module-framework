@@ -1,9 +1,9 @@
 {
 	"name": "active-module-framework",
-	"version": "1.0.1",
+	"version": "0.0.1",
 	"description": "モジュール式WebAPIフレームワーク",
 	"keywords": [],
-	"private": true,
+	"private": false,
 	"author": "SoraKumo",
 	"license": "MIT",
 	"main": "index.js",
