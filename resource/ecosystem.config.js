@@ -1,8 +1,8 @@
 module.exports = {
 	apps: [{
-		name: "tree-type-infomation-service",
+		name: "amf-test",
 		script: "./dist/app/index.js",
-		watch: ["./dist/app", "./local_modules/active-module-framework/"],
+		watch: ["./dist/app"],
 		instances: 1,
 		exec_mode: "cluster_mode",
 		log_date_format: "YYYY-MM-DD HH:mm Z",
