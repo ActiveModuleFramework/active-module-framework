@@ -106,27 +106,27 @@ export class Manager {
 		}
 
 		//モジュールを読み出す
-		let files: fs.Dirent[]
+		let files: string[]
 		try{
-			files = fs.readdirSync(params.modulePath, { withFileTypes: true })
+			files = fs.readdirSync(params.modulePath)
 		}catch(e){
 			files = []
 		}
 		const modules: { [key: string]: typeof Module } = {};
 		for (let ent of files) {
-
+			const dir = fs.statSync(path.join(params.modulePath, ent)).isDirectory()
 			let r: typeof Module
-			if(ent.isFile()){
-				let name = ent.name
+			if (!dir){
+				let name = ent
 				let ext = name.slice(-3)
 				let ext2 = name.slice(-5)
 				if (ext === '.js' || (ext === '.ts' && ext2 !== '.d.ts'))
 					r = require(params.modulePath + '/' + name) as typeof Module
 
-			}else if(ent.isDirectory()){
-				const basePath = `${params.modulePath}/${ent.name}/`
+			}else{
+				const basePath = `${params.modulePath}/${ent}/`
 				let path:string = null
-				for(const name of ['index.ts','index.js',ent.name+'.ts',ent.name+'.js']){
+				for(const name of ['index.ts','index.js',ent+'.ts',ent+'.js']){
 					if (isExistFile(basePath + name)){
 						path = basePath + name
 						break
