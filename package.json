@@ -1,6 +1,6 @@
 {
 	"name": "active-module-framework",
-	"version": "0.0.3",
+	"version": "0.0.5",
 	"description": "モジュール式WebAPIフレームワーク",
 	"keywords": [],
 	"private": false,
