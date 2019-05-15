@@ -11,7 +11,7 @@ module.exports = {
 		out_file: "./dist/log/access.log",
 		node_args: ["--no-warnings"],
 		env: {
-			"NODE_OPTIONS": "--inspect=localhost:9229 --no-warnings"
+			"NODE_OPTIONS": "--no-warnings"
 		}
 	}]
 }

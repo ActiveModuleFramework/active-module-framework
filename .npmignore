@@ -1,3 +1,2 @@
 *.tsbuildinfo
-src
-!resource
+/src
