@@ -38,6 +38,7 @@ export interface ManagerParams {
 	debug: boolean
 	listen: number | string
 }
+
 /**
  *フレームワーク総合管理用クラス
  *
@@ -104,9 +105,6 @@ export class Manager {
 			return false;
 		}
 
-		//カレントパスの取得
-		const cpath = path.resolve("")
-
 		//モジュールを読み出す
 		let files: fs.Dirent[]
 		try{
@@ -123,10 +121,10 @@ export class Manager {
 				let ext = name.slice(-3)
 				let ext2 = name.slice(-5)
 				if (ext === '.js' || (ext === '.ts' && ext2 !== '.d.ts'))
-					r = require(cpath + '/' + params.modulePath + '/' + name) as typeof Module
+					r = require(params.modulePath + '/' + name) as typeof Module
 
 			}else if(ent.isDirectory()){
-				const basePath = `${cpath}/${params.modulePath}/${ent.name}/`
+				const basePath = `${params.modulePath}/${ent.name}/`
 				let path:string = null
 				for(const name of ['index.ts','index.js',ent.name+'.ts',ent.name+'.js']){
 					if (isExistFile(basePath + name)){

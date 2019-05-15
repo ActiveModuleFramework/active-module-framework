@@ -85,23 +85,28 @@ export class BaseHtml {
 		const jsFiles: FileInfo[] = []
 		//CSSファイルリストの読み込み
 		for (let dir of cssPath){
-			const files = fs.readdirSync(`${rootPath}/${dir}`)
-			for(const name of files){
-				if (path.extname(name).toLowerCase() === '.css'){
-					const stat = fs.statSync(`${rootPath}/${dir}/${name}`)
-					cssFiles.push({dir,name,date:stat.mtime})
+			try{
+				const files = fs.readdirSync(`${rootPath}/${dir}`)
+				for (const name of files) {
+					if (path.extname(name).toLowerCase() === '.css') {
+						const stat = fs.statSync(`${rootPath}/${dir}/${name}`)
+						cssFiles.push({ dir, name, date: stat.mtime })
+					}
 				}
-			}
+			}catch(e){}
+
 		}
 		//JSファイルリストの読み込み
 		for (let dir of jsPath) {
-			const files = fs.readdirSync(`${rootPath}/${dir}`)
-			for (const name of files) {
-				if (path.extname(name).toLowerCase() === '.js') {
-					const stat = fs.statSync(`${rootPath}/${dir}/${name}`)
-					jsFiles.push({ dir, name, date: stat.mtime })
+			try {
+				const files = fs.readdirSync(`${rootPath}/${dir}`)
+				for (const name of files) {
+					if (path.extname(name).toLowerCase() === '.js') {
+						const stat = fs.statSync(`${rootPath}/${dir}/${name}`)
+						jsFiles.push({ dir, name, date: stat.mtime })
+					}
 				}
-			}
+			} catch (e) { }
 		}
 		//JSを優先順位に従って並び替え
 		jsFiles.sort((a,b)=>{

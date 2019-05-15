@@ -1,13 +1,13 @@
 {
 	"name": "active-module-framework",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "モジュール式WebAPIフレームワーク",
 	"keywords": [],
 	"private": false,
 	"author": "SoraKumo",
 	"license": "MIT",
-	"main": "index.js",
-	"types": "index.d.ts",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"bin": {
 		"amf-init": "bin/amf-init"
 	},
