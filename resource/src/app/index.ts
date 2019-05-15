@@ -11,7 +11,7 @@ new amf.Manager({
 	localDBPath: path.resolve(__dirname, '../db/app.db'),	//ローカルDBパス
 	modulePath: path.resolve(__dirname, './modules'),		//モジュール配置パス
 	jsPriority: [],											//優先JSファイル設定
-	debug: false,											//デバッグ用メッセージ出力
+	debug: true,											//デバッグ用メッセージ出力
 	listen: 8080											//受付ポート/UNIXドメインソケット
 	//listen:'dist/sock/app.sock'
 })
