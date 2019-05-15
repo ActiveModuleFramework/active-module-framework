@@ -6,9 +6,12 @@
 - フロントエンドとバックエンドの通信を最小限の記述で実現できます
 
 ## 更新履歴
-- 2019/05/15 0.06 モジュールのパスの扱いを変更
+- 2019/05/15 0.07 モジュールのパスの扱いを変更
 - 2019/05/07 0.02 添付しているフロントエンドサンプルの修正
 - 2019/05/02 0.01 初期バージョンリリース
+
+## ソースコード
+- [https://github.com/ActiveModuleFramework/active-module-framework](https://github.com/ActiveModuleFramework/active-module-framework)
 
 ## 動作ブラウザ
 - 一般的なブラウザ(IE11でも動作可能)
@@ -18,6 +21,11 @@
 - TypeScript 3系統
   
 ## 使い方
+
+- 参考URL  
+	[https://croud.jp/?p=592](https://croud.jp/?p=592)  
+  
+  
 
 - 初期ファイルの設置
 ```
