@@ -1,6 +1,15 @@
 import { LocalDB } from "./LocalDB"
 import { Module } from "./Module"
 
+export interface AdapterResultFormat {
+	globalHash: string	//ブラウザ共通セッションキー
+	sessionHash: string //タブ用セッションキー
+	results: { 			//結果データ
+		value: {[keys:string]:any}
+		error: string
+	}[]
+}
+
 /**
  *セッションデータ管理用クラス
  *
@@ -11,7 +20,7 @@ export class Session {
 	static requests: ((session: Session) => {})[] = []
 	sessionHash: string
 	globalHash: string
-	result: any
+	result: AdapterResultFormat
 	values: { [key: string]: any }
 	localDB: LocalDB
 	moduleTypes: { [key: string]: typeof Module }
@@ -124,7 +133,7 @@ export class Session {
 	 * @returns
 	 * @memberof Session
 	 */
-	public setResult(value: string) {
+	public setResult(value: AdapterResultFormat) {
 		return this.result = value
 	}
 	/**
