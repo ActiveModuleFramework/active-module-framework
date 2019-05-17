@@ -1,13 +1,14 @@
 import { LocalDB } from "./LocalDB"
 import { Module } from "./Module"
 
+export interface AdapterResult {
+	value: { [keys: string]: any } | null
+	error: string | null
+}
 export interface AdapterResultFormat {
-	globalHash: string	//ブラウザ共通セッションキー
-	sessionHash: string //タブ用セッションキー
-	results: { 			//結果データ
-		value: {[keys:string]:any}
-		error: string
-	}[]
+	globalHash: string|null	//ブラウザ共通セッションキー
+	sessionHash: string|null //タブ用セッションキー
+	results: AdapterResult[]
 }
 
 /**
@@ -18,12 +19,12 @@ export interface AdapterResultFormat {
  */
 export class Session {
 	static requests: ((session: Session) => {})[] = []
-	sessionHash: string
-	globalHash: string
-	result: AdapterResultFormat
-	values: { [key: string]: any }
-	localDB: LocalDB
-	moduleTypes: { [key: string]: typeof Module }
+	sessionHash: string|null = null
+	globalHash: string|null = null
+	result: AdapterResultFormat|null = null
+	values: { [key: string]: any } = {}
+	localDB: LocalDB|null = null
+	moduleTypes: { [key: string]: typeof Module } = {}
 	modules: Module[] = []
 	/**
 	 *
@@ -41,7 +42,6 @@ export class Session {
 		const session = await db.startSession(sessionHash, 1)
 		this.globalHash = global.hash
 		this.sessionHash = session.hash
-		this.values = {}
 		this.setValue("GLOBAL_ITEM", global.values)
 		this.setValue("SESSION_ITEM", session.values)
 		await this.request()
@@ -52,8 +52,13 @@ export class Session {
 	 * @memberof Session
 	 */
 	async final() {
-		await this.localDB.endSession(this.sessionHash, this.getValue("SESSION_ITEM"))
-		await this.localDB.endSession(this.globalHash, this.getValue("GLOBAL_ITEM"))
+		if (this.localDB){
+			if (this.sessionHash)
+				await this.localDB.endSession(this.sessionHash, this.getValue("SESSION_ITEM"))
+			if (this.globalHash)
+				await this.localDB.endSession(this.globalHash, this.getValue("GLOBAL_ITEM"))
+		}
+
 	}
 	/**
 	 *
@@ -71,7 +76,7 @@ export class Session {
 	 * @returns {string}
 	 * @memberof Session
 	 */
-	public getSessionHash(): string {
+	public getSessionHash(): string|null {
 		return this.sessionHash
 	}
 	/**
@@ -101,7 +106,7 @@ export class Session {
 	 * @returns {string}
 	 * @memberof Session
 	 */
-	public getGlobalHash(): string {
+	public getGlobalHash(): string|null {
 		return this.globalHash
 	}
 	/**
@@ -143,7 +148,7 @@ export class Session {
 	 * @param {*} value
 	 * @memberof Session
 	 */
-	public setValue(name: string, value) {
+	public setValue(name: string, value:any) {
 		this.values[name] = value
 	}
 	/**
@@ -163,7 +168,7 @@ export class Session {
 	 * @param {*} value
 	 * @memberof Session
 	 */
-	setGlobalItem(name: string, value) {
+	setGlobalItem(name: string, value:any) {
 		var items = this.getValue("GLOBAL_ITEM") as {[key: string]: any}
 		if (!items) {
 			items = {}
@@ -171,14 +176,14 @@ export class Session {
 		}
 		items[name] = value
 	}
-	getGlobalItem(name: string, defValue?) {
+	getGlobalItem(name: string, defValue?:any) {
 		var items = this.getValue("GLOBAL_ITEM") as { [key: string]: any }
 		if (!items) {
 			return null
 		}
 		return (typeof items[name] === 'undefined') ? defValue : items[name]
 	}
-	setSessionItem(name: string, value) {
+	setSessionItem(name: string, value:any) {
 		var items = this.getValue("SESSION_ITEM") as { [key: string]: any }
 		if (!items) {
 			items = {}
@@ -186,17 +191,17 @@ export class Session {
 		}
 		items[name] = value
 	}
-	getSessionItem(name: string, defValue?) {
+	getSessionItem(name: string, defValue?:any) {
 		var items = this.getValue("SESSION_ITEM") as { [key: string]: any }
 		if (!items) {
 			return null
 		}
 		return (typeof items[name] === 'undefined') ? defValue : items[name]
 	}
-	getModuleType<T extends typeof Module>(name): T {
+	getModuleType<T extends typeof Module>(name:string): T {
 		return this.moduleTypes[name] as T
 	}
-	async getModule<T extends Module>(constructor: { new(): T }): Promise<T> {
+	async getModule<T extends Module>(constructor: { new(): T }): Promise<T|null> {
 		for (let module of this.modules) {
 			if (module instanceof constructor) {
 				return module

@@ -7,8 +7,8 @@ import * as sqlite from 'sqlite3';
  * @class SQLiteDB
  */
 export class SQLiteDB {
-	items: {}
-	db: sqlite.Database
+	items:{[key:string]:any}  = {}
+	db: sqlite.Database|null = null
 
 	/**
 	 *DBを開く
@@ -49,10 +49,10 @@ export class SQLiteDB {
 	 * @returns {Promise<sqlite.Database>} DBインスタンス
 	 * @memberof SQLiteDB
 	 */
-	private static async openAsync(path: string): Promise<sqlite.Database> {
-		return new Promise<sqlite.Database>((resolve) => {
+	private static openAsync(path: string): Promise<sqlite.Database|null> {
+		return new Promise<sqlite.Database|null>((resolve) => {
 			new sqlite.Database(path,
-				function (err) {
+				function (this:sqlite.Database,err) {
 					if (err) {
 						resolve(null)
 					} else {
@@ -101,7 +101,7 @@ export class SQLiteDB {
 	 * @returns {sqlite.Database}
 	 * @memberof SQLiteDB
 	 */
-	getDB(): sqlite.Database {
+	getDB(): sqlite.Database|null {
 		return this.db
 	}
 
@@ -115,12 +115,17 @@ export class SQLiteDB {
 	 */
 	run(sql: string, ...params: any): Promise<sqlite.RunResult> {
 		return new Promise<sqlite.RunResult>((resolv, reject) => {
-			this.db.run(sql, ...params, function (error) {
-				if (error)
-					reject(error)
-				else
-					resolv(this)
-			});
+			if (!this.db){
+				reject('DB is null')
+			}else{
+				this.db.run(sql, ...params, function (this: sqlite.RunResult, err: Error | null) {
+					if (err)
+						reject(err)
+					else
+						resolv(this)
+				});
+			}
+
 		})
 	}
 	/**
@@ -133,13 +138,17 @@ export class SQLiteDB {
 	 */
 	all(sql: string, ...params: any): Promise<{ [key: string]: any }[]> {
 		return new Promise<{ [key: string]: any }[]>((resolv, reject) => {
-			this.db.all(sql, ...params, function (error, rows) {
-				if (error)
-					reject(error)
-				else {
-					resolv(rows)
-				}
-			});
+			if (!this.db) {
+				reject('DB is null')
+			} else {
+				this.db.all(sql, ...params, function (this: sqlite.RunResult, err: Error | null, rows: any[]) {
+					if (err)
+						reject(err)
+					else {
+						resolv(rows)
+					}
+				});
+			}
 		})
 	}
 	/**
@@ -152,13 +161,18 @@ export class SQLiteDB {
 	 */
 	all2(sql: string, ...params: any): Promise<{ rows: { [key: string]: any }[], statement: sqlite.Statement }> {
 		return new Promise<{ rows: { [key: string]: any }[], statement: sqlite.Statement }>((resolv, reject) => {
-			this.db.all(sql, ...params, function (error, rows) {
-				if (error)
-					reject(error)
-				else {
-					resolv({ rows: rows, statement: this })
-				}
-			});
+			if (!this.db) {
+				reject('DB is null')
+			} else {
+				this.db.all(sql, ...params, function (this: sqlite.RunResult, err: Error | null, rows: any[]) {
+					if (err)
+						reject(err)
+					else {
+						resolv({ rows: rows, statement: this })
+					}
+				});
+			}
+
 		})
 	}
 	/**
@@ -171,13 +185,18 @@ export class SQLiteDB {
 	 */
 	get(sql: string, ...params: any): Promise<{ [key: string]: any }> {
 		return new Promise<{ [key: string]: any }>((resolv, reject) => {
-			this.db.get(sql, ...params, function (error, row) {
-				if (error)
-					reject(error)
-				else {
-					resolv(row)
-				}
-			});
+			if (!this.db) {
+				reject('DB is null')
+			} else {
+				this.db.get(sql, ...params, function (err: Error, row: any) {
+					if (err)
+						reject(err)
+					else {
+						resolv(row)
+					}
+				});
+			}
+
 		})
 	}
 	/**
@@ -190,13 +209,18 @@ export class SQLiteDB {
 	 */
 	get2(sql: string, ...params: any): Promise<{ row: { [key: string]: any }, statement: sqlite.Statement }> {
 		return new Promise<{ row: { [key: string]: any }, statement: sqlite.Statement }>((resolv, reject) => {
-			this.db.get(sql, ...params, function (error, row) {
-				if (error)
-					reject(error)
-				else {
-					resolv({ row: row, statement: this })
-				}
-			});
+			if (!this.db) {
+				reject('DB is null')
+			} else {
+				this.db.get(sql, ...params, function (this: sqlite.Statement,err: Error, row: any) {
+					if (err)
+						reject(err)
+					else {
+						resolv({ row: row, statement: this })
+					}
+				});
+			}
+
 		})
 	}
 }

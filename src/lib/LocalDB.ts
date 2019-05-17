@@ -61,7 +61,7 @@ export class LocalDB extends SQLiteDB{
 	 * @memberof LocalDB
 	 */
 	public async createSession(){
-		var id = uuid();
+		var id:string|null = uuid();
 		do{
 			const result = await this.all("select id from session where id=?",id)
 			if(result.length)
