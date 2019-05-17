@@ -7,22 +7,29 @@ import * as express from 'express'
 import { Module } from './Module';
 import { LocalDB } from './LocalDB';
 import { Session } from './Session';
+import { AdapterResult } from './Session';
 import { BaseHtml } from './BaseHtml'
+
+interface SessionResult{
+	globalHash: string|null
+	sessionHash:string|null
+	result:any
+}
 
 /**
  *マネージャ初期化用パラメータ
  *
  * @export
  * @interface ManagerParams
- * @property {string} rootPath	一般コンテンツのローカルパス
- * @property {string} remotePath 一般コンテンツのリモートパス
- * @property {string} execPath	コマンド実行用リモートパス
+ * @property {string} rootPath		一般コンテンツのローカルパス
+ * @property {string} remotePath	一般コンテンツのリモートパス
+ * @property {string} execPath		コマンド実行用リモートパス
  * @property {string} localDBPath	ローカルDBパス
  * @property {string} modulePath	モジュール配置パス
- * @property {string[]} cssPath	自動ロード用CSSパス
- * @property {string[]} jsPath	一般コンテンツのローカルパス
+ * @property {string[]} cssPath		自動ロード用CSSパス
+ * @property {string[]} jsPath		一般コンテンツのローカルパス
  * @property {string[]} jsPriority	優先JSファイル設定
- * @property {boolean} debug	デバッグ用メッセージ出力
+ * @property {boolean} debug		デバッグ用メッセージ出力
  * @property {number | string} listen	受付ポート/UNIXドメインソケット
  */
 export interface ManagerParams {
@@ -37,6 +44,7 @@ export interface ManagerParams {
 	jsPriority: string[]
 	debug: boolean
 	listen: number | string
+	listened?:((port:string|number)=>void)
 }
 
 /**
@@ -49,10 +57,10 @@ export class Manager {
 	debug:boolean
 	localDB: LocalDB = new LocalDB()
 	stderr: string = ''
-	modules: { [key: string]: typeof Module }
-	priorityList: typeof Module[][]
+	modules: { [key: string]: typeof Module } = {}
+	priorityList: typeof Module[][] = []
 	express : express.Express
-	static initFlag
+	static initFlag = false
 	/**
 	 *Creates an instance of Manager.
 	 * @memberof Manager
@@ -74,7 +82,7 @@ export class Manager {
 	 * @param {*} params
 	 * @memberof Manager
 	 */
-	output(msg:string,...params){
+	output(msg:string,...params:any[]){
 		if(this.debug)
 			console.log(msg, ...params)
 	}
@@ -88,7 +96,7 @@ export class Manager {
 	 */
 	async init(params: ManagerParams):Promise<boolean>{
 		//ファイルの存在確認
-		function isExistFile(path) {
+		function isExistFile(path:string) {
 			try {
 				fs.statSync(path)
 			} catch (e) {
@@ -115,17 +123,17 @@ export class Manager {
 		const modules: { [key: string]: typeof Module } = {};
 		for (let ent of files) {
 			const dir = fs.statSync(path.join(params.modulePath, ent)).isDirectory()
-			let r: typeof Module
+			let r: {[key:string]:typeof Module}|null = null
 			if (!dir){
 				let name = ent
 				let ext = name.slice(-3)
 				let ext2 = name.slice(-5)
 				if (ext === '.js' || (ext === '.ts' && ext2 !== '.d.ts'))
-					r = require(params.modulePath + '/' + name) as typeof Module
+					r = require(params.modulePath + '/' + name) as { [key: string]: typeof Module }
 
 			}else{
 				const basePath = `${params.modulePath}/${ent}/`
-				let path:string = null
+				let path:string|null = null
 				for(const name of ['index.ts','index.js',ent+'.ts',ent+'.js']){
 					if (isExistFile(basePath + name)){
 						path = basePath + name
@@ -133,7 +141,7 @@ export class Manager {
 					}
 				}
 				if (path)
-					r = require(path) as typeof Module
+					r = require(path) as { [key: string]: typeof Module }
 
 			}
 			if(r){
@@ -196,7 +204,7 @@ export class Manager {
 
 		}
 		Manager.initFlag = true
-		this.listen(params.listen)
+		this.listen(params)
 		return true
 	}
 
@@ -207,8 +215,8 @@ export class Manager {
 	 * @memberof Manager
 	 */
 	initExpress(params: ManagerParams) : void{
-		const commands = { exec: null };
-		commands.exec = (req, res) => { this.exec(req, res) }
+		const commands: { [key:string]:(req: express.Request, res: express.Response)=>void} = {};
+		commands.exec = (req: express.Request, res: express.Response) => { this.exec(req, res) }
 		//一般コンテンツの対応付け
 		this.express.use(params.remotePath, express.static(params.rootPath));
 		//クライアント接続時の処理
@@ -220,7 +228,7 @@ export class Manager {
 				return;
 			}
 			//コマンドパラメータの解析
-			const cmd = req.query.cmd
+			const cmd = req.query.cmd as string
 			if (cmd != null) {
 				const command = commands[cmd]
 				if (command != null) {
@@ -271,7 +279,7 @@ export class Manager {
 		if (module == null)
 			return 0;
 
-		const request = module["REQUEST"];
+		const request = module.REQUEST;
 		let priority = 1;
 		if (!request)
 			return priority;
@@ -312,7 +320,7 @@ export class Manager {
 				const results = session.result.results
 				//要求された命令の解析と実行
 				for (const func of params.functions) {
-					const result = { value: null, error: null }
+					const result: AdapterResult = { value: null, error: null }
 					results.push(result)
 
 					if (!func.function) {
@@ -334,7 +342,7 @@ export class Manager {
 					//ファンクション名にプレフィックスを付ける
 					const funcName = 'JS_' + name[1]
 					//ファンクションを取得
-					const funcPt = classPt[funcName]
+					const funcPt = (classPt as any)[funcName] as Function
 					if (!funcPt) {
 						result.error = util.format("命令が存在しない: %s", func.function)
 						continue
@@ -367,22 +375,22 @@ export class Manager {
 		});
 	}
 	//待ち受け設定
-	listen(value:number|string) {
+	private	listen(params: ManagerParams) {
 		let port = 0
-		let path = null
-		if (typeof value === 'number'){
-			port = value + parseInt(process.env.NODE_APP_INSTANCE || '0')
+		let path:string = ''
+		if (typeof params.listen === 'number'){
+			port = params.listen + parseInt(process.env.NODE_APP_INSTANCE || '0')
 		}else{
-			path = value + '.' + (process.env.NODE_APP_INSTANCE || '0')
+			path = params.listen + '.' + (process.env.NODE_APP_INSTANCE || '0')
 		}
 
 
 		//終了時の処理(Windowsでは動作しない)
-		const onExit = async code => {
+		const onExit: NodeJS.SignalsListener = async (signal: NodeJS.Signals) => {
 			await this.destory()
 			if (path)
 				this.removeSock(path)	//ソケットファイルの削除
-			process.exit(code);
+			process.exit(0);
 		}
 		process.on('SIGINT', onExit)
 		process.on('SIGTERM', onExit)
@@ -391,16 +399,20 @@ export class Manager {
 			//ソケットの待ち受け設定
 			this.express.listen(port,()=>{
 				this.output('localhost:%d', port)
+				if(params.listened)
+					params.listened(port)
 			})
 
 		} else {
 			//ソケットファイルの削除
 			this.removeSock(path)
 			//ソケットの待ち受け設定
-			this.express.listen(path,(err)=>{
+			this.express.listen(path,()=>{
 				this.output(path)
 				try {
 					fs.chmodSync(path, '666')	//ドメインソケットのアクセス権を設定
+					if (params.listened)
+						params.listened(path)
 				} catch (e) { }
 			})	//ソケットの待ち受け設定
 		}
