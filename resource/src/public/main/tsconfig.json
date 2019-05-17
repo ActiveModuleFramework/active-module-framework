@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"sourceMap": true,
+		"target": "es5",
+		"module": "amd",
+		"composite": true,
+		"outFile": "../../../dist/public/js/index.js",
+		"moduleResolution": "node",
+		"incremental": true,
+		"lib": [
+			"es2017",
+			"dom"
+		]
+	},
+}
