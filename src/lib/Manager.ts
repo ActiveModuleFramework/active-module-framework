@@ -70,7 +70,7 @@ export class Manager {
 		this.express = express()
 		this.output('--- Start Manager')
 		//エラーメッセージをキャプチャ
-		capcon.startCapture(process.stderr, (stderr) => {
+		capcon.startCapture(process.stderr, (stderr:any) => {
 			this.stderr += stderr;
 		})
 		this.init(params)
@@ -220,7 +220,7 @@ export class Manager {
 		//一般コンテンツの対応付け
 		this.express.use(params.remotePath, express.static(params.rootPath));
 		//クライアント接続時の処理
-		this.express.all(params.remotePath, async (req, res, next)=>{
+		this.express.all(params.remotePath, async (req: express.Request, res: express.Response, next)=>{
 			//初期化が完了しているかどうか
 			if (!Manager.initFlag) {
 				res.header("Content-Type", "text/plain; charset=utf-8")
@@ -307,7 +307,7 @@ export class Manager {
 	 */
 	private exec(req: express.Request, res: express.Response) {
 		let postData = "";
-		req.on('data', function (v) {
+		req.on('data', function (v:string) {
 			postData += v;
 		}).on('end', async () => {
 			const params = JSON.parse(postData);
