@@ -1,4 +1,4 @@
-///<reference path="../../../dist/public/js/jwf.d.ts"/>
+import * as JWF from "javascript-window-framework";
 
 //ページ読み込み時に実行する処理を設定
 addEventListener("DOMContentLoaded", Main)
@@ -26,8 +26,8 @@ function Main() {
 		const a = parseInt((nodes[0] as HTMLInputElement).value)
 		const b = parseInt((nodes[1] as HTMLInputElement).value)
 		//サーバにデータを送信し、受信完了まで待つ
-		const result = await adapter.exec('TestModule.add', a, b)
+		const result = await adapter.exec('TestModule.add', a, b) as number
 		//結果を書き込む
-		nodes[3].textContent = result
+		nodes[3].textContent = result.toString()
 	})
 }

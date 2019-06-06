@@ -1,8 +1,6 @@
 {
 	"references": [
-		{"path": "./src/app"},
-		{"path": "./src/public/main"
-		}
+		{"path": "./src/app"}
 	],
 	"exclude": ["."]
 }
