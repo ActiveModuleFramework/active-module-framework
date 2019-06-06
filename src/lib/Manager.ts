@@ -44,7 +44,7 @@ export interface ManagerParams {
 	jsPriority: string[]
 	debug: boolean
 	listen: number | string
-	listened?:((port:string|number)=>void)
+	listened?:((port:string|number|null)=>void)
 }
 
 /**
@@ -205,6 +205,7 @@ export class Manager {
 		}
 		Manager.initFlag = true
 		this.listen(params)
+
 		return true
 	}
 
@@ -395,14 +396,22 @@ export class Manager {
 		process.on('SIGINT', onExit)
 		process.on('SIGTERM', onExit)
 
+		this.express.on('error',() => {
+		 	console.log('error')
+		 	return true
+		 })
+
 		if (port) {
 			//ソケットの待ち受け設定
-			this.express.listen(port,()=>{
+			this.express.listen(port, (err:any) => {
 				this.output('localhost:%d', port)
-				if(params.listened)
+				if (params.listened)
 					params.listened(port)
+			}).on('error', (error: Error)=>{
+				this.output('error: localhost:%d', port)
+				if (params.listened)
+					params.listened(null)
 			})
-
 		} else {
 			//ソケットファイルの削除
 			this.removeSock(path)
