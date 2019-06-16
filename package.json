@@ -15,7 +15,7 @@
     "capture-console": "^1.0.1",
     "express": "^4.17.1",
     "parse5": "^5.1.0",
-    "sqlite3": "^4.0.8",
+    "sqlite3": "^4.0.9",
     "sprintf": "^0.1.5",
     "fs-extra": "^8.0.1",
     "@types/sqlite3": "^3.1.5",
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@types/capture-console": "^1.0.0",
     "@types/express": "^4.17.0",
-    "@types/node": "^12.0.5",
+    "@types/node": "^12.0.8",
     "@types/sha256": "^0.2.0",
     "@types/sprintf": "^0.1.0",
     "@types/uuid": "^3.4.4"
