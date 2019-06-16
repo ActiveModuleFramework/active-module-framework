@@ -9,6 +9,7 @@ import { SQLiteDB } from "./SQLiteDB";
  * @extends {SQLiteDB}
  */
 export class LocalDB extends SQLiteDB {
+  private items: { [key: string]: unknown } = {};
   /**
    *セッション用DBの初期化
    *
@@ -21,6 +22,14 @@ export class LocalDB extends SQLiteDB {
     await this.run(
       "CREATE INDEX IF NOT EXISTS idx_session_date on session(date)"
     );
+    //アイテム用テーブルの作成
+    await this.run(
+      "CREATE TABLE IF NOT EXISTS app_data (name text primary key,value json)"
+    );
+    var json = await this.get(
+      "select json_group_object(name,json(value)) as value from app_data"
+    );
+    this.items = JSON.parse(json.value as string);
   }
 
   /**
@@ -32,7 +41,7 @@ export class LocalDB extends SQLiteDB {
    * @memberof LocalDB
    */
   public async startSession(
-    hash: string,
+    hash: string | null,
     expire: number
   ): Promise<{ hash: string; values: { [key: string]: any } }> {
     let id = hash;
@@ -47,7 +56,10 @@ export class LocalDB extends SQLiteDB {
         "select id,server from session where id=?",
         id
       );
+
       if (result) {
+        //セッションの有効時間を延期
+        this.run("update session set date = current_timestamp where id=?", id);
         return {
           hash: result.id as string,
           values: JSON.parse(result.server as string)
@@ -92,5 +104,55 @@ export class LocalDB extends SQLiteDB {
       id
     );
     return id;
+  }
+  /**
+   *
+   *
+   * @param {string} name
+   * @param {*} value
+   * @memberof LocalDB
+   */
+  public setItem(...params: [string, unknown] | [{ [key: string]: unknown }]) {
+    if (typeof params[0] === "string") {
+      this.items[name] = params[1];
+      this.run(
+        "replace into app_data values(?,?)",
+        name,
+        JSON.stringify(params[1])
+      );
+    } else {
+      for (const key of Object.keys(params[0])) {
+        const value = params[0][key as keyof typeof params[0]];
+        this.items[key] = value;
+        this.run(
+          "replace into app_data values(?,?)",
+          key,
+          JSON.stringify(value)
+        );
+      }
+    }
+  }
+  /*
+  public setItem(value:{[key:string]:unknown}): void {
+    this.items[name] = value;
+    this.run("replace into app_data values(?,?)", name, JSON.stringify(value));
+  }*/
+  /**
+   *
+   *
+   * @param {string} name
+   * @returns {*}
+   * @memberof LocalDB
+   */
+  public getItem(name: string): unknown;
+  public getItem<T>(name: string, defValue?: T): T;
+  public getItem(name: string, defValue?: unknown): unknown {
+    const value = this.items[name];
+    if (value) {
+      if (typeof defValue === "number" && typeof value === "string")
+        return parseInt(value) as typeof defValue;
+      return value;
+    } else if (defValue !== undefined) return defValue;
+    return value;
   }
 }

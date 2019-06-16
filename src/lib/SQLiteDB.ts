@@ -7,7 +7,6 @@ import * as sqlite from "sqlite3";
  * @class SQLiteDB
  */
 export class SQLiteDB {
-  private items: { [key: string]: unknown } = {};
   private db: sqlite.Database | null = null;
 
   /**
@@ -24,14 +23,6 @@ export class SQLiteDB {
     this.db = db;
     //タイムアウト設定
     this.db.configure("busyTimeout", 15000);
-    //アイテム用テーブルの作成
-    await this.run(
-      "CREATE TABLE IF NOT EXISTS app_data (name text primary key,value json)"
-    );
-    var json = await this.get(
-      "select json_group_object(name,json(value)) as value from app_data"
-    );
-    this.items = JSON.parse(json.value as string);
     //継承クラスの初期化処理
     await this.initDB();
     return true;
@@ -75,27 +66,6 @@ export class SQLiteDB {
     if (!this.db) return false;
     this.db.close();
     return true;
-  }
-  /**
-   *
-   *
-   * @param {string} name
-   * @param {*} value
-   * @memberof SQLiteDB
-   */
-  public setItem(name: string, value: unknown): void {
-    this.items[name] = value;
-    this.run("replace into app_data values(?,?)", name, JSON.stringify(value));
-  }
-  /**
-   *
-   *
-   * @param {string} name
-   * @returns {*}
-   * @memberof SQLiteDB
-   */
-  public getItem(name: string): unknown {
-    return this.items[name];
   }
   /**
    *
