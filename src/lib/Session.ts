@@ -1,5 +1,6 @@
 import { LocalDB } from "./LocalDB";
 import { Module } from "./Module";
+import { Manager } from "./Manager";
 
 export interface AdapterResult {
   value: { [keys: string]: unknown } | null;
@@ -25,7 +26,13 @@ export class Session {
   private values: { [key: string]: unknown } = {};
   private localDB: LocalDB | null = null;
   private moduleTypes: { [key: string]: typeof Module } = {};
-  private modules: Module[] = [];
+  private modules: (Module)[] = [];
+  private manager: Manager;
+  private buffer?:Buffer;
+
+  public constructor(manager: Manager) {
+    this.manager = manager;
+  }
   /**
    *
    *
@@ -37,9 +44,10 @@ export class Session {
    */
   public async init(
     db: LocalDB,
-    globalHash: string,
-    sessionHash: string,
-    moduleTypes: { [key: string]: typeof Module }
+    globalHash: string | null,
+    sessionHash: string | null,
+    moduleTypes: { [key: string]: typeof Module },
+    buffer?: Buffer
   ): Promise<void> {
     this.localDB = db;
     this.moduleTypes = moduleTypes;
@@ -49,6 +57,7 @@ export class Session {
     this.sessionHash = session.hash;
     this.setValue("GLOBAL_ITEM", global.values);
     this.setValue("SESSION_ITEM", session.values);
+    this.buffer = buffer;
     await this.request();
   }
   /**
@@ -221,19 +230,33 @@ export class Session {
   public getModuleType<T extends typeof Module>(name: string): T {
     return this.moduleTypes[name] as T;
   }
-  public async getModule<T extends Module>(constructor: {
-    new (): T;
-  }): Promise<T | null> {
-    for (let module of this.modules) {
-      if (module instanceof constructor) {
-        return module;
+  public async getModule<T extends Module>(
+    type:
+      | ({
+          new (manager: Manager): T;
+        })
+      | string
+  ): Promise<T | null> {
+    if (typeof type === "string") {
+      for (let module of this.modules) {
+        if (module.constructor.name === type) {
+          return module as T;
+        }
+      }
+    } else {
+      for (let module of this.modules) {
+        if (module instanceof type) {
+          return module;
+        }
       }
     }
     try {
-      const module = new constructor();
-      this.modules.push(module);
+      const moduleSrc = this.manager.getModuleSync(type);
+      if (!moduleSrc) return null;
+      const module = Object.assign(moduleSrc) as T;
       module.setSession(this);
-      await module.onStartSession();
+      if (module.onStartSession) await module.onStartSession();
+      this.modules.push(module);
       return module;
     } catch (e) {
       return null;
@@ -241,7 +264,7 @@ export class Session {
   }
   public async releaseModules(): Promise<void> {
     for (let module of this.modules) {
-      await module.onEndSession();
+      if (module.onEndSession) await module.onEndSession();
     }
   }
   public async request(): Promise<void> {
@@ -249,5 +272,8 @@ export class Session {
     for (var i = 0; i < Session.requests.length; i++)
       p.push(Session.requests[i](this));
     await Promise.all(p);
+  }
+  public getBuffer():Buffer|undefined{
+    return this.buffer;
   }
 }

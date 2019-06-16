@@ -3,18 +3,13 @@ import * as util from "util";
 import * as capcon from "capture-console";
 import * as path from "path";
 import * as express from "express";
+import * as bodyParser from "body-parser";
 
 import { Module } from "./Module";
 import { LocalDB } from "./LocalDB";
 import { Session } from "./Session";
 import { AdapterResult } from "./Session";
 import { BaseHtml } from "./BaseHtml";
-
-interface SessionResult {
-  globalHash: string | null;
-  sessionHash: string | null;
-  result: unknown;
-}
 
 /**
  *マネージャ初期化用パラメータ
@@ -46,7 +41,15 @@ export interface ManagerParams {
   listen: number | string;
   listened?: (port: string | number) => void;
 }
-
+interface AdapterFormat {
+  globalHash: string | null; //ブラウザ共通セッションキー
+  sessionHash: string | null; //タブ用セッションキー
+  functions: //命令格納用
+  {
+    function: string; //命令
+    params: unknown[]; //パラメータ
+  }[];
+}
 /**
  *フレームワーク総合管理用クラス
  *
@@ -57,10 +60,14 @@ export class Manager {
   private debug: boolean;
   private localDB: LocalDB = new LocalDB();
   private stderr: string = "";
-  private modules: { [key: string]: typeof Module } = {};
-  private priorityList: typeof Module[][] = [];
+  private modulesInstance: { [key: string]: Module } = {};
+  private modulesType: { [key: string]: typeof Module } = {};
   private express: express.Express;
   private static initFlag = false;
+  private commands: {
+      [key: string]: (req: express.Request, res: express.Response) => void;
+    } = {};
+
   /**
    *Creates an instance of Manager.
    * @memberof Manager
@@ -77,6 +84,9 @@ export class Manager {
       }
     );
     this.init(params);
+  }
+  public getModuleTypes() {
+    return this.modulesType;
   }
   /**
    *
@@ -109,8 +119,6 @@ export class Manager {
       }
       return true;
     }
-    //Expressの初期化
-    this.initExpress(params);
 
     //ローカルDBを開く
     if (!(await this.localDB.open(params.localDBPath))) {
@@ -127,9 +135,12 @@ export class Manager {
       files = [];
     }
     const modules: { [key: string]: typeof Module } = {};
+
     for (let ent of files) {
       const dir = fs.statSync(path.join(params.modulePath, ent)).isDirectory();
-      let r: { [key: string]: typeof Module } | null = null;
+      let r: {
+        [key: string]: typeof Module;
+      } | null = null;
       if (!dir) {
         let name = ent;
         let ext = name.slice(-3);
@@ -147,74 +158,69 @@ export class Manager {
             break;
           }
         }
-        if (path) r = require(path) as { [key: string]: typeof Module };
+        if (path)
+          r = require(path) as {
+            [key: string]: typeof Module;
+          };
       }
       if (r) {
-        const name = Object.keys(r)[0];
-        modules[name] = r[name];
-      }
-    }
-    this.modules = modules;
-
-    //依存関係の重み付け
-    const sortList: { key: number; module: typeof Module }[] = [];
-    for (let index in modules) {
-      const module = modules[index];
-      sortList.push({
-        key: Manager.getPriority(modules, module),
-        module: module
-      });
-    }
-    sortList.sort(function(a, b): number {
-      return a.key - b.key;
-    });
-
-    //重み付けを配列のキーに変換
-    const priorityList: typeof Module[][] = [];
-    for (let v of sortList) {
-      const key = v.key - 1;
-      if (priorityList[key]) priorityList[key].push(v.module);
-      else priorityList[key] = [v.module];
-    }
-    this.priorityList = priorityList;
-
-    //依存関係を考慮して初期化
-    let flag = true;
-    for (let v in priorityList) {
-      let modules = priorityList[v];
-      for (let module of modules) {
-        if (module.onCreateModule) {
-          module.setManager(this);
-
-          try {
-            this.output("モジュール初期化:%s", module.name);
-            const result = await module.onCreateModule();
-            if (!result) {
-              // eslint-disable-next-line no-console
-              console.error("モジュール初期化エラー:%s", module.name);
-              flag = false;
-              break;
-            }
-            if (!flag) {
-              Manager.initFlag = false;
-              return false;
-            }
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error("モジュール初期化例外");
-            // eslint-disable-next-line no-console
-            console.error(err);
-            Manager.initFlag = false;
-            return false;
+        for (const name of Object.keys(r)) {
+          if (name === "default") continue;
+          const module = r[name];
+          if ("Module" in module) {
+            modules[name] = module as typeof Module;
           }
         }
       }
     }
+    this.modulesType = modules;
+
+    //モジュールの初期化
+    for (const name of Object.keys(modules)) {
+      this.getModule(name);
+    }
+
+    //Expressの初期化
+    this.initExpress(params);
+
     Manager.initFlag = true;
     this.listen(params);
     return true;
   }
+  public async getModule<T extends Module>(
+    type: string | { new (manager: Manager): T }
+  ): Promise<T | null> {
+    const modules = this.modulesInstance;
+    let name;
+    let module;
+    if (typeof type === "string") name = type;
+    else name = type.name;
+    module = this.modulesInstance[name];
+    if (module) return module as T;
+    let constructor = this.modulesType[name];
+    if (constructor == null || !("Module" in constructor)) return null;
+    module = new constructor(this);
+    modules[name] = module;
 
+    const info = constructor.getModuleInfo();
+    this.output("init: %s", JSON.stringify(info));
+    await module.onCreateModule();
+    return module as T;
+  }
+  public getModuleSync<T extends Module>(
+    type: string | { new (manager: Manager): T }
+  ): T | null {
+    let name;
+    let module;
+    if (typeof type === "string") name = type;
+    else name = type.name;
+    module = this.modulesInstance[name];
+    if (module) return module as T;
+    return null;
+  }
+  public addCommand(name:string,proc:(req: express.Request, res: express.Response)=>void){
+    this.commands[name] = proc;
+  }
   /**
    *Expressの設定を行う
    *
@@ -222,12 +228,17 @@ export class Manager {
    * @memberof Manager
    */
   private initExpress(params: ManagerParams): void {
-    const commands: {
-      [key: string]: (req: express.Request, res: express.Response) => void;
-    } = {};
+    const commands = this.commands;
     commands.exec = (req: express.Request, res: express.Response): void => {
       this.exec(req, res);
     };
+    commands.upload = (req: express.Request, res: express.Response): void => {
+      this.upload(req, res);
+    };
+    //バイナリファイルの扱い設定
+    this.express.use(
+      bodyParser.raw({ type: "application/octet-stream", limit: "300mb" })
+    );
     //一般コンテンツの対応付け
     this.express.use(params.remotePath, express.static(params.rootPath));
     //クライアント接続時の処理
@@ -278,44 +289,16 @@ export class Manager {
    * @memberof Manager
    */
   public async destory(): Promise<void> {
-    const priorityList = this.priorityList;
-    for (let i = priorityList.length - 1; i >= 0; i--) {
-      const modules = priorityList[i];
-      const promise = [];
-      for (const module of modules) {
-        this.output("モジュール解放化:%s", module.name);
-        if (module.onDestroyModule) promise.push(module.onDestroyModule());
-      }
-      await Promise.all(promise);
+    const promise: Promise<boolean>[] = [];
+    const modules = this.modulesInstance;
+    for (const name of Object.keys(modules)) {
+      const module = modules[name];
+      this.output("モジュール解放化:%s", name);
+      promise.push(module.onDestroyModule());
     }
-    this.output("--- Stop Manager");
-  }
-  /**
-   *
-   *
-   * @private
-   * @static
-   * @param {{ [key: string]: typeof Module }} modules	モジュールリスト
-   * @param {typeof Module} module						モジュールタイプ
-   * @returns {number} 優先度
-   * @memberof Manager
-   */
-  private static getPriority(
-    modules: { [key: string]: typeof Module },
-    module: typeof Module
-  ): number {
-    if (module == null) return 0;
+    await Promise.all(promise);
 
-    const request = module.REQUEST;
-    let priority = 1;
-    if (!request) return priority;
-    for (const module2 of request) {
-      priority = Math.max(
-        priority,
-        Manager.getPriority(modules, modules[module2]) + 1
-      );
-    }
-    return priority;
+    this.output("--- Stop Manager");
   }
   /**
    *ローカルDBを返す
@@ -325,6 +308,13 @@ export class Manager {
    */
   public getLocalDB(): LocalDB {
     return this.localDB;
+  }
+  private upload(req: express.Request, res: express.Response): void {
+    if (req.body instanceof Buffer) {
+      const params = req.query.params;
+      if(params)
+        this.excute(res,JSON.parse(params),req.body);
+    }
   }
   /**
    *モジュール処理の区分け実行
@@ -342,112 +332,92 @@ export class Manager {
       })
       .on(
         "end",
-        async (): Promise<void> => {
-          const params = JSON.parse(postData);
-          //マネージャ機能をセッション用にコピー
-          const session = new Session();
-          await session.init(
-            this.localDB,
-            params.globalHash,
-            params.sessionHash,
-            this.modules
-          );
-          session.result = {
-            globalHash: session.getGlobalHash(),
-            sessionHash: session.getSessionHash(),
-            results: []
-          };
-
-          if (params.functions) {
-            const results = session.result.results;
-            //要求された命令の解析と実行
-            for (const func of params.functions) {
-              const result: AdapterResult = { value: null, error: null };
-              results.push(result);
-
-              if (!func.function) {
-                result.error = util.format(
-                  "命令が指定されていない",
-                  func.function
-                );
-                continue;
-              }
-              const name = func.function.split(".");
-              if (name.length != 2) {
-                result.error = util.format(
-                  "クラス名が指定されていない: %s",
-                  func.function
-                );
-                continue;
-              }
-              if (!this.modules[name[0]]) {
-                result.error = util.format(
-                  "クラスが存在しない: %s",
-                  func.function
-                );
-                continue;
-              }
-              //クラスインスタンスを取得
-              const classPt = await session.getModule(this.modules[name[0]]);
-              if (!classPt) {
-                result.error = util.format(
-                  "モジュールインスタンスの生成に失敗: %s",
-                  name[0]
-                );
-                continue;
-              }
-              //ファンクション名にプレフィックスを付ける
-              const funcName = "JS_" + name[1];
-              //ファンクションを取得
-              const funcPt = classPt[funcName] as Function;
-              if (!funcPt) {
-                result.error = util.format(
-                  "命令が存在しない: %s",
-                  func.function
-                );
-                continue;
-              }
-              if (!func.params) {
-                result.error = util.format(
-                  "パラメータ書式エラー: %s",
-                  func.function
-                );
-                continue;
-              }
-              if (funcPt.length !== func.params.length) {
-                result.error = util.format(
-                  "パラメータの数が一致しない: %s",
-                  func.function
-                );
-                continue;
-              }
-              //命令の実行
-              try {
-                this.output(
-                  "命令実行: %s %s",
-                  funcName,
-                  JSON.stringify(func.params)
-                );
-                result.value = await funcPt.call(classPt, ...func.params);
-                this.output("実行結果: %s", JSON.stringify(result.value));
-              } catch (e) {
-                // eslint-disable-next-line no-console
-                console.error(e);
-                result.error = util.format(
-                  "モジュール実行エラー: %s",
-                  func.function
-                );
-                continue;
-              }
-            }
-            //セッション終了
-            session.final();
-          }
-          //クライアントに返すデータを設定
-          res.json(session.result);
-          res.end();
+        (): Promise<void> => {
+          return this.excute(res,JSON.parse(postData));
         }
       );
+  }
+  private async excute(res: express.Response, params: AdapterFormat,buffer?:Buffer) {
+    //マネージャ機能をセッション用にコピー
+    const session = new Session(this);
+    await session.init(
+      this.localDB,
+      params.globalHash,
+      params.sessionHash,
+      this.modulesType,
+      buffer
+    );
+    session.result = {
+      globalHash: session.getGlobalHash(),
+      sessionHash: session.getSessionHash(),
+      results: []
+    };
+
+    if (params.functions) {
+      const results = session.result.results;
+      //要求された命令の解析と実行
+      for (const func of params.functions) {
+        const result: AdapterResult = { value: null, error: null };
+        results.push(result);
+
+        if (!func.function) {
+          result.error = util.format("命令が指定されていない", func.function);
+          continue;
+        }
+        const name = func.function.split(".");
+        if (name.length != 2) {
+          result.error = util.format(
+            "クラス名が指定されていない: %s",
+            func.function
+          );
+          continue;
+        }
+        const className = name[0];
+        //クラスインスタンスを取得
+        let classPt = await session.getModule(className);
+        if (classPt === null) {
+          result.error = util.format("クラスが存在しない: %s", func.function);
+          continue;
+        }
+        //ファンクション名にプレフィックスを付ける
+        const funcName = "JS_" + name[1];
+        //ファンクションを取得
+        const funcPt = classPt[funcName as keyof Module] as Function | null;
+        if (!funcPt) {
+          result.error = util.format("命令が存在しない: %s", func.function);
+          continue;
+        }
+        if (!func.params) {
+          result.error = util.format("パラメータ書式エラー: %s", func.function);
+          continue;
+        }
+        if (funcPt.length !== func.params.length) {
+          result.error = util.format(
+            "パラメータの数が一致しない: %s",
+            func.function
+          );
+          continue;
+        }
+        //命令の実行
+        try {
+          this.output("命令実行: %s %s", funcName, JSON.stringify(func.params));
+          //戻り値の受け取り
+          const funcResult = funcPt.call(classPt, ...func.params);
+          result.value = await funcResult;
+          this.output("実行結果: %s", JSON.stringify(result.value));
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error(e);
+          result.error = util.format("モジュール実行エラー: %s", func.function);
+          continue;
+        }
+      }
+      //セッション終了
+      session.final();
+    }
+    //クライアントに返すデータを設定
+    res.json(session.result);
+    res.end();
   }
   //待ち受け設定
   private listen(params: ManagerParams): void {
