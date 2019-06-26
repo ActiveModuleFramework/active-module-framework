@@ -28,7 +28,7 @@ export class Session {
   private moduleTypes: { [key: string]: typeof Module } = {};
   private modules: (Module)[] = [];
   private manager: Manager;
-  private buffer?:Buffer;
+  private buffer?: Buffer;
 
   public constructor(manager: Manager) {
     this.manager = manager;
@@ -273,7 +273,7 @@ export class Session {
       p.push(Session.requests[i](this));
     await Promise.all(p);
   }
-  public getBuffer():Buffer|undefined{
+  public getBuffer(): Buffer | undefined {
     return this.buffer;
   }
 }

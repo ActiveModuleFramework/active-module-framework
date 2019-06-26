@@ -9,7 +9,7 @@ import { Module } from "./Module";
 import { LocalDB } from "./LocalDB";
 import { Session } from "./Session";
 import { AdapterResult } from "./Session";
-import { BaseHtml } from "./BaseHtml";
+import { HtmlCreater } from "./HtmlCreater";
 
 /**
  *マネージャ初期化用パラメータ
@@ -65,8 +65,8 @@ export class Manager {
   private express: express.Express;
   private static initFlag = false;
   private commands: {
-      [key: string]: (req: express.Request, res: express.Response) => void;
-    } = {};
+    [key: string]: (req: express.Request, res: express.Response) => void;
+  } = {};
 
   /**
    *Creates an instance of Manager.
@@ -77,15 +77,14 @@ export class Manager {
     this.express = express();
     this.output("--- Start Manager");
     //エラーメッセージをキャプチャ
-    capcon.startCapture(
-      process.stderr,
-      (stderr: unknown): void => {
-        this.stderr += stderr;
-      }
-    );
+    capcon.startCapture(process.stderr, (stderr: unknown): void => {
+      this.stderr += stderr;
+    });
     this.init(params);
   }
-  public getModuleTypes() {
+  public getModuleTypes(): {
+    [key: string]: typeof Module;
+  } {
     return this.modulesType;
   }
   /**
@@ -218,7 +217,10 @@ export class Manager {
     if (module) return module as T;
     return null;
   }
-  public addCommand(name:string,proc:(req: express.Request, res: express.Response)=>void){
+  public addCommand(
+    name: string,
+    proc: (req: express.Request, res: express.Response) => void
+  ): void {
     this.commands[name] = proc;
   }
   /**
@@ -238,6 +240,9 @@ export class Manager {
     //バイナリファイルの扱い設定
     this.express.use(
       bodyParser.raw({ type: "application/octet-stream", limit: "300mb" })
+    );
+    this.express.use(
+      bodyParser.json({ type: "application/json", limit: "3mb" })
     );
     //一般コンテンツの対応付け
     this.express.use(params.remotePath, express.static(params.rootPath));
@@ -265,17 +270,23 @@ export class Manager {
             res.json({ error: "リクエストエラー" });
           }
         } else {
-          const path = (req.header("location_path") || "") + params.remotePath;
+          const path =
+            (req.header("location_path") || `https://${req.hostname}`) +
+            params.remotePath;
+            console.log(path);
+          const htmlNode = new HtmlCreater();
           if (
-            !(await BaseHtml.output(
+            !htmlNode.output(
+              req,
               res,
               path,
               params.rootPath,
               params.indexPath,
               params.cssPath,
               params.jsPath,
-              params.jsPriority
-            ))
+              params.jsPriority,
+              Object.values(this.modulesInstance)
+            )
           )
             next();
         }
@@ -312,8 +323,7 @@ export class Manager {
   private upload(req: express.Request, res: express.Response): void {
     if (req.body instanceof Buffer) {
       const params = req.query.params;
-      if(params)
-        this.excute(res,JSON.parse(params),req.body);
+      if (params) this.excute(res, JSON.parse(params), req.body);
     }
   }
   /**
@@ -325,19 +335,27 @@ export class Manager {
    * @memberof Manager
    */
   private exec(req: express.Request, res: express.Response): void {
-    let postData = "";
-    req
-      .on("data", function(v: string): void {
-        postData += v;
-      })
-      .on(
-        "end",
-        (): Promise<void> => {
-          return this.excute(res,JSON.parse(postData));
-        }
-      );
+    if (req.header("content-type") == "application/json") {
+      this.excute(res, req.body);
+    } else {
+      let postData = "";
+      req
+        .on("data", function(v: string): void {
+          postData += v;
+        })
+        .on(
+          "end",
+          (): Promise<void> => {
+            return this.excute(res, JSON.parse(postData));
+          }
+        );
+    }
   }
-  private async excute(res: express.Response, params: AdapterFormat,buffer?:Buffer) {
+  private async excute(
+    res: express.Response,
+    params: AdapterFormat,
+    buffer?: Buffer
+  ): Promise<void> {
     //マネージャ機能をセッション用にコピー
     const session = new Session(this);
     await session.init(
@@ -440,29 +458,23 @@ export class Manager {
 
     if (port) {
       //ソケットの待ち受け設定
-      this.express.listen(
-        port,
-        (): void => {
-          this.output("localhost:%d", port);
-          if (params.listened) params.listened(port);
-        }
-      );
+      this.express.listen(port, (): void => {
+        this.output("localhost:%d", port);
+        if (params.listened) params.listened(port);
+      });
     } else {
       //ソケットファイルの削除
       this.removeSock(path);
       //ソケットの待ち受け設定
-      this.express.listen(
-        path,
-        (): void => {
-          this.output(path);
-          try {
-            fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
-            if (params.listened) params.listened(path);
-          } catch (e) {
-            //
-          }
+      this.express.listen(path, (): void => {
+        this.output(path);
+        try {
+          fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
+          if (params.listened) params.listened(path);
+        } catch (e) {
+          //
         }
-      ); //ソケットの待ち受け設定
+      }); //ソケットの待ち受け設定
     }
   }
   /**
