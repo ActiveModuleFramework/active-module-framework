@@ -1,6 +1,6 @@
 {
   "name": "active-module-framework",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "モジュール式WebAPIフレームワーク",
   "keywords": [],
   "private": false,
@@ -12,22 +12,24 @@
     "init-amf": "bin/init-amf.js"
   },
   "dependencies": {
+    "jsdom": "^15.1.1",
     "capture-console": "^1.0.1",
     "express": "^4.17.1",
     "parse5": "^5.1.0",
     "sqlite3": "^4.0.9",
     "sprintf": "^0.1.5",
-    "fs-extra": "^8.0.1",
-    "@types/sqlite3": "^3.1.5",
-    "javascript-window-framework": "^0.0.14"
+    "fs-extra": "^8.0.1"
   },
   "devDependencies": {
+    "@types/sqlite3": "^3.1.5",
+    "@types/jsdom": "^12.2.3",
     "@types/capture-console": "^1.0.0",
     "@types/express": "^4.17.0",
-    "@types/node": "^12.0.8",
+    "@types/node": "^12.0.10",
     "@types/sha256": "^0.2.0",
     "@types/sprintf": "^0.1.0",
-    "@types/uuid": "^3.4.4"
+    "@types/uuid": "^3.4.4",
+    "javascript-window-framework": "^0.0.14"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

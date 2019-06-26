@@ -1,3 +1,4 @@
+/* eslint-disable no-dupe-class-members */
 import * as uuid from "uuid/v4";
 import { SQLiteDB } from "./SQLiteDB";
 
@@ -112,7 +113,9 @@ export class LocalDB extends SQLiteDB {
    * @param {*} value
    * @memberof LocalDB
    */
-  public setItem(...params: [string, unknown] | [{ [key: string]: unknown }]) {
+  public setItem(
+    ...params: [string, unknown] | [{ [key: string]: unknown }]
+  ): void {
     if (typeof params[0] === "string") {
       this.items[name] = params[1];
       this.run(
