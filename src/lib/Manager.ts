@@ -1,3 +1,5 @@
+import * as cluster from "cluster";
+import * as os from "os";
 import * as fs from "fs";
 import * as util from "util";
 import * as capcon from "capture-console";
@@ -37,7 +39,8 @@ export interface ManagerParams {
   cssPath: string[];
   jsPath: string[];
   jsPriority: string[];
-  debug: boolean;
+  cluster?: number;
+  debug?: boolean;
   listen: number | string;
   listened?: (port: string | number) => void;
 }
@@ -50,6 +53,21 @@ interface AdapterFormat {
     params: unknown[]; //パラメータ
   }[];
 }
+
+/**
+ *一時待機用
+ *
+ * @export
+ * @param {number} timeout
+ * @returns {Promise<void>}
+ */
+export function Sleep(timeout: number): Promise<void> {
+  return new Promise((resolv): void => {
+    setTimeout((): void => {
+      resolv();
+    }, timeout);
+  });
+}
 /**
  *フレームワーク総合管理用クラス
  *
@@ -57,12 +75,12 @@ interface AdapterFormat {
  * @class Manager
  */
 export class Manager {
-  private debug: boolean;
+  private debug?: boolean;
   private localDB: LocalDB = new LocalDB();
   private stderr: string = "";
   private modulesInstance: { [key: string]: Module } = {};
   private modulesType: { [key: string]: typeof Module } = {};
-  private express: express.Express;
+  private express?: express.Express;
   private static initFlag = false;
   private commands: {
     [key: string]: (req: express.Request, res: express.Response) => void;
@@ -73,22 +91,25 @@ export class Manager {
    * @memberof Manager
    */
   public constructor(params: ManagerParams) {
-    this.debug = params.debug;
-    this.express = express();
-    this.output("--- Start Manager");
-    //エラーメッセージをキャプチャ
-    capcon.startCapture(process.stderr, (stderr: unknown): void => {
-      this.stderr += stderr;
-    });
     this.init(params);
   }
+
+  /**
+   *モジュールのコンストラクター一覧を返す
+   *
+   * @returns {{
+   *     [key: string]: typeof Module;
+   *   }}
+   * @memberof Manager
+   */
   public getModuleTypes(): {
     [key: string]: typeof Module;
   } {
     return this.modulesType;
   }
+
   /**
-   *
+   *デバッグ情報の出力
    *
    * @param {string} msg
    * @param {*} params
@@ -100,6 +121,7 @@ export class Manager {
       console.log(msg, ...params);
     }
   }
+
   /**
    * 初期化処理
    *
@@ -109,83 +131,99 @@ export class Manager {
    * @memberof Manager
    */
   public async init(params: ManagerParams): Promise<boolean> {
-    //ファイルの存在確認
-    function isExistFile(path: string): boolean {
-      try {
-        fs.statSync(path);
-      } catch (e) {
-        return false;
+    if (
+      params.cluster !== undefined &&
+      params.cluster !== -1 &&
+      cluster.isMaster
+    ) {
+      this.output("親プロセス起動");
+      cluster.on("exit", async (worker, code, signal) => {
+        console.log(
+          "Worker %d died with code/signal %s. Restarting worker...",
+          worker.process.pid,
+          signal || code
+        );
+        Sleep(2000); //待機
+        //初期化以外の要因なら再起動
+        if (code !== -10) cluster.fork();
+      });
+
+      //子プロセスを作成
+      const numCPUs = params.cluster === 0 ? os.cpus().length : params.cluster;
+      for (var i = 0; i < numCPUs; i++) {
+        cluster.fork();
       }
-      return true;
-    }
-
-    //ローカルDBを開く
-    if (!(await this.localDB.open(params.localDBPath))) {
-      // eslint-disable-next-line no-console
-      console.error("ローカルDBオープンエラー:%s", params.localDBPath);
-      return false;
-    }
-
-    //モジュールを読み出す
-    let files: string[];
-    try {
-      files = fs.readdirSync(params.modulePath);
-    } catch (e) {
-      files = [];
-    }
-    const modules: { [key: string]: typeof Module } = {};
-
-    for (let ent of files) {
-      const dir = fs.statSync(path.join(params.modulePath, ent)).isDirectory();
-      let r: {
-        [key: string]: typeof Module;
-      } | null = null;
-      if (!dir) {
-        let name = ent;
-        let ext = name.slice(-3);
-        let ext2 = name.slice(-5);
-        if (ext === ".js" || (ext === ".ts" && ext2 !== ".d.ts"))
-          r = require(params.modulePath + "/" + name) as {
-            [key: string]: typeof Module;
-          };
-      } else {
-        const basePath = `${params.modulePath}/${ent}/`;
-        let path: string | null = null;
-        for (const name of ["index.ts", "index.js", ent + ".ts", ent + ".js"]) {
-          if (isExistFile(basePath + name)) {
-            path = basePath + name;
-            break;
-          }
-        }
-        if (path)
-          r = require(path) as {
-            [key: string]: typeof Module;
-          };
+    } else {
+      this.output("子プロセス起動");
+      this.debug = params.debug;
+      this.output("--- Start Manager");
+      //エラーメッセージをキャプチャ
+      capcon.startCapture(process.stderr, (stderr: unknown): void => {
+        this.stderr += stderr;
+      });
+      //ローカルDBを開く
+      if (!(await this.localDB.open(params.localDBPath))) {
+        // eslint-disable-next-line no-console
+        console.error("ローカルDBオープンエラー:%s", params.localDBPath);
+        process.exit(-10);
       }
-      if (r) {
-        for (const name of Object.keys(r)) {
-          if (name === "default") continue;
-          const module = r[name];
-          if ("Module" in module) {
-            modules[name] = module as typeof Module;
-          }
-        }
+
+      //モジュールを読み出す
+      const modulesType = this.loadModule(params.modulePath);
+      this.modulesType = modulesType;
+
+      //モジュールの初期化
+      for (const name of Object.keys(modulesType)) {
+        if (!(await this.getModule(name))) process.exit(-10);
       }
+
+      //Expressの初期化
+      this.initExpress(params);
+      Manager.initFlag = true;
     }
-    this.modulesType = modules;
-
-    //モジュールの初期化
-    for (const name of Object.keys(modules)) {
-      this.getModule(name);
-    }
-
-    //Expressの初期化
-    this.initExpress(params);
-
-    Manager.initFlag = true;
-    this.listen(params);
     return true;
   }
+
+  /**
+   *ディレクトリからモジュールを読み込む
+   *
+   * @param {string} modulePath
+   * @returns
+   * @memberof Manager
+   */
+  public loadModule(modulePath: string) {
+    let modulesType: { [key: string]: typeof Module } = {};
+    const files = fs.readdirSync(modulePath);
+    for (const file of files) {
+      const filePath = path.join(modulePath, file);
+      const dir = fs.statSync(filePath).isDirectory();
+      if (dir) {
+        modulesType = Object.assign(modulesType, this.loadModule(filePath));
+      } else {
+        if (file.match(`\(?<=\.(ts|js))(?<!d\.ts)$`)) {
+          const r = require(filePath) as { [key: string]: typeof Module };
+          if (r) {
+            for (const name of Object.keys(r)) {
+              const module = r[name];
+              if (module.prototype instanceof Module) {
+                modulesType[name] = module;
+              }
+            }
+          }
+        }
+      }
+    }
+    return modulesType;
+  }
+
+  /**
+   *モジュールの取得と新規インスタンスの作成
+   *
+   * @template T
+   * @param {(string | { new (manager: Manager): T })} type
+   * @returns {(Promise<T | null>)}
+   * @memberof Manager
+   */
   public async getModule<T extends Module>(
     type: string | { new (manager: Manager): T }
   ): Promise<T | null> {
@@ -203,9 +241,19 @@ export class Manager {
 
     const info = constructor.getModuleInfo();
     this.output("init: %s", JSON.stringify(info));
-    await module.onCreateModule();
+    //初期化に失敗したらnullを返す
+    if (!(await module.onCreateModule())) return null;
     return module as T;
   }
+
+  /**
+   *非同期を使わずモジュールの取得(未初期化は例外発生)
+   *
+   * @template T
+   * @param {(string | { new (manager: Manager): T })} type
+   * @returns {(T | null)}
+   * @memberof Manager
+   */
   public getModuleSync<T extends Module>(
     type: string | { new (manager: Manager): T }
   ): T | null {
@@ -215,14 +263,25 @@ export class Manager {
     else name = type.name;
     module = this.modulesInstance[name];
     if (module) return module as T;
-    return null;
+    throw "Module Load Error";
   }
+
+  /**
+   *コマンドの追加
+   * /?cmd=コマンド
+   * に対応したルーティングを行う
+   *
+   * @param {string} name
+   * @param {(req: express.Request, res: express.Response) => void} proc
+   * @memberof Manager
+   */
   public addCommand(
     name: string,
     proc: (req: express.Request, res: express.Response) => void
   ): void {
     this.commands[name] = proc;
   }
+
   /**
    *Expressの設定を行う
    *
@@ -230,6 +289,7 @@ export class Manager {
    * @memberof Manager
    */
   private initExpress(params: ManagerParams): void {
+    const exp = express();
     const commands = this.commands;
     commands.exec = (req: express.Request, res: express.Response): void => {
       this.exec(req, res);
@@ -237,17 +297,19 @@ export class Manager {
     commands.upload = (req: express.Request, res: express.Response): void => {
       this.upload(req, res);
     };
+
+    exp.options("*", function(req, res) {
+      res.header("Access-Control-Allow-Headers", "content-type");
+      res.sendStatus(200);
+      res.end();
+    });
     //バイナリファイルの扱い設定
-    this.express.use(
+    exp.use(
       bodyParser.raw({ type: "application/octet-stream", limit: "300mb" })
     );
-    this.express.use(
-      bodyParser.json({ type: "application/json", limit: "3mb" })
-    );
-    //一般コンテンツの対応付け
-    this.express.use(params.remotePath, express.static(params.rootPath));
+    exp.use(bodyParser.json({ type: "application/json", limit: "3mb" }));
     //クライアント接続時の処理
-    this.express.all(
+    exp.all(
       params.remotePath,
       async (
         req: express.Request,
@@ -268,12 +330,13 @@ export class Manager {
             command(req, res);
           } else {
             res.json({ error: "リクエストエラー" });
+            res.end();
           }
         } else {
           const path =
             (req.header("location_path") || `https://${req.hostname}`) +
             params.remotePath;
-            console.log(path);
+          this.output(path);
           const htmlNode = new HtmlCreater();
           if (
             !htmlNode.output(
@@ -292,6 +355,54 @@ export class Manager {
         }
       }
     );
+    //一般コンテンツの対応付け
+    exp.use(params.remotePath, express.static(params.rootPath));
+
+    //待ち受けポートの設定
+    let port = 0;
+    let path = "";
+    if (typeof params.listen === "number") {
+      port = params.listen; // + parseInt(process.env.NODE_APP_INSTANCE || "0");
+    } else {
+      path = params.listen; // + "." + (process.env.NODE_APP_INSTANCE || "0");
+    }
+
+    //終了時の処理(Windowsでは動作しない)
+    const onExit: NodeJS.SignalsListener = async (): Promise<void> => {
+      await this.destory();
+      if (path) this.removeSock(path); //ソケットファイルの削除
+      process.exit(0);
+    };
+    process.on("SIGINT", onExit);
+    process.on("SIGTERM", onExit);
+
+    if (port) {
+      //ソケットの待ち受け設定
+      exp.listen(port, (): void => {
+        this.output("localhost:%d", port);
+        if (params.listened) params.listened(port);
+      });
+    } else {
+      const listen = (flag: boolean) => {
+        //ソケットの待ち受け設定
+        exp.listen(path, (): void => {
+          this.output(path);
+          try {
+            fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
+            if (params.listened) params.listened(path);
+          } catch (e) {
+            //初回かどうか識別
+            if (flag) {
+              //ソケットファイルの削除
+              this.removeSock(path);
+              //リトライ
+              listen(false);
+            }
+          }
+        }); //ソケットの待ち受け設定
+      };
+      listen(true);
+    }
   }
 
   /**
@@ -320,12 +431,28 @@ export class Manager {
   public getLocalDB(): LocalDB {
     return this.localDB;
   }
+
+  /**
+   *ファイルのアップロード対処用
+   *
+   * @private
+   * @param {express.Request} req
+   * @param {express.Response} res
+   * @memberof Manager
+   */
   private upload(req: express.Request, res: express.Response): void {
     if (req.body instanceof Buffer) {
       const params = req.query.params;
-      if (params) this.excute(res, JSON.parse(params), req.body);
+      try {
+        const values = JSON.parse(params);
+        if (params) this.excute(res, values, req.body);
+      } catch (e) {
+        res.status(500);
+        res.end("500 error");
+      }
     }
   }
+
   /**
    *モジュール処理の区分け実行
    *
@@ -335,7 +462,7 @@ export class Manager {
    * @memberof Manager
    */
   private exec(req: express.Request, res: express.Response): void {
-    if (req.header("content-type") == "application/json") {
+    if (req.header("content-type") === "application/json") {
       this.excute(res, req.body);
     } else {
       let postData = "";
@@ -343,14 +470,28 @@ export class Manager {
         .on("data", function(v: string): void {
           postData += v;
         })
-        .on(
-          "end",
-          (): Promise<void> => {
-            return this.excute(res, JSON.parse(postData));
+        .on("end", (): void => {
+          try {
+            const values = JSON.parse(postData);
+            this.excute(res, values);
+          } catch (e) {
+            res.status(500);
+            res.end("500 error");
           }
-        );
+        });
     }
   }
+
+  /**
+   *クライアントからの処理要求を実行
+   *
+   * @private
+   * @param {express.Response} res
+   * @param {AdapterFormat} params
+   * @param {Buffer} [buffer]
+   * @returns {Promise<void>}
+   * @memberof Manager
+   */
   private async excute(
     res: express.Response,
     params: AdapterFormat,
@@ -362,7 +503,7 @@ export class Manager {
       this.localDB,
       params.globalHash,
       params.sessionHash,
-      this.modulesType,
+      res,
       buffer
     );
     session.result = {
@@ -370,6 +511,14 @@ export class Manager {
       sessionHash: session.getSessionHash(),
       results: []
     };
+
+    const modulesType = this.modulesType;
+
+    //セッション初期化処理のあるモジュールを呼び出す
+    for (const name of Object.keys(modulesType)) {
+      if (modulesType[name].prototype.onStartSession)
+        await session.initModule(name);
+    }
 
     if (params.functions) {
       const results = session.result.results;
@@ -418,11 +567,17 @@ export class Manager {
         }
         //命令の実行
         try {
-          this.output("命令実行: %s %s", funcName, JSON.stringify(func.params));
+          if (this.debug)
+            this.output(
+              "命令実行: %s %s",
+              funcName,
+              JSON.stringify(func.params)
+            );
           //戻り値の受け取り
           const funcResult = funcPt.call(classPt, ...func.params);
           result.value = await funcResult;
-          this.output("実行結果: %s", JSON.stringify(result.value));
+          if (this.debug)
+            this.output("実行結果: %s", JSON.stringify(result.value));
         } catch (e) {
           // eslint-disable-next-line no-console
           console.error(e);
@@ -434,49 +589,12 @@ export class Manager {
       session.final();
     }
     //クライアントに返すデータを設定
-    res.json(session.result);
-    res.end();
-  }
-  //待ち受け設定
-  private listen(params: ManagerParams): void {
-    let port = 0;
-    let path = "";
-    if (typeof params.listen === "number") {
-      port = params.listen + parseInt(process.env.NODE_APP_INSTANCE || "0");
-    } else {
-      path = params.listen + "." + (process.env.NODE_APP_INSTANCE || "0");
-    }
-
-    //終了時の処理(Windowsでは動作しない)
-    const onExit: NodeJS.SignalsListener = async (): Promise<void> => {
-      await this.destory();
-      if (path) this.removeSock(path); //ソケットファイルの削除
-      process.exit(0);
-    };
-    process.on("SIGINT", onExit);
-    process.on("SIGTERM", onExit);
-
-    if (port) {
-      //ソケットの待ち受け設定
-      this.express.listen(port, (): void => {
-        this.output("localhost:%d", port);
-        if (params.listened) params.listened(port);
-      });
-    } else {
-      //ソケットファイルの削除
-      this.removeSock(path);
-      //ソケットの待ち受け設定
-      this.express.listen(path, (): void => {
-        this.output(path);
-        try {
-          fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
-          if (params.listened) params.listened(path);
-        } catch (e) {
-          //
-        }
-      }); //ソケットの待ち受け設定
+    if (session.isReturn()) {
+      res.json(session.result);
+      res.end();
     }
   }
+
   /**
    *前回のソケットファイルの削除
    *

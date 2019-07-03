@@ -1,6 +1,7 @@
 import { LocalDB } from "./LocalDB";
 import { Module } from "./Module";
 import { Manager } from "./Manager";
+import * as express from "express";
 
 export interface AdapterResult {
   value: { [keys: string]: unknown } | null;
@@ -25,13 +26,19 @@ export class Session {
   public result: AdapterResultFormat | null = null;
   private values: { [key: string]: unknown } = {};
   private localDB: LocalDB | null = null;
-  private moduleTypes: { [key: string]: typeof Module } = {};
   private modules: (Module)[] = [];
   private manager: Manager;
+  private res?: Express.Response;
   private buffer?: Buffer;
-
+  private returnFlag: boolean = true;
   public constructor(manager: Manager) {
     this.manager = manager;
+  }
+  public setDefaultReturn(flag: boolean) {
+    this.returnFlag = flag;
+  }
+  public isReturn() {
+    return this.returnFlag;
   }
   /**
    *
@@ -46,19 +53,26 @@ export class Session {
     db: LocalDB,
     globalHash: string | null,
     sessionHash: string | null,
-    moduleTypes: { [key: string]: typeof Module },
+    res: Express.Response,
     buffer?: Buffer
   ): Promise<void> {
     this.localDB = db;
-    this.moduleTypes = moduleTypes;
-    const global = await db.startSession(globalHash, 96);
-    const session = await db.startSession(sessionHash, 1);
+    const global = await db.startSession(
+      "GLOBAL",
+      globalHash,
+      7 * 24 * 60 * 60
+    );
+    const session = await db.startSession("SESSION", sessionHash, 60 * 60);
     this.globalHash = global.hash;
     this.sessionHash = session.hash;
     this.setValue("GLOBAL_ITEM", global.values);
     this.setValue("SESSION_ITEM", session.values);
+    this.res = res;
     this.buffer = buffer;
     await this.request();
+  }
+  public getResponse() {
+    return this.res as express.Response;
   }
   /**
    *
@@ -227,16 +241,28 @@ export class Session {
     }
     return typeof items[name] === "undefined" ? defValue : items[name];
   }
-  public getModuleType<T extends typeof Module>(name: string): T {
-    return this.moduleTypes[name] as T;
+  public async initModule<T extends Module>(
+    type:string
+  ): Promise<T | null> {
+    try {
+      const moduleSrc = this.manager.getModuleSync(type);
+      if (!moduleSrc) return null;
+      const module = Object.assign(moduleSrc) as T;
+      module.setSession(this);
+      if (module.onStartSession) await module.onStartSession();
+      this.modules.push(module);
+      return module;
+    } catch (e) {
+      return null;
+    }
   }
-  public async getModule<T extends Module>(
+  public getModule<T extends Module>(
     type:
       | ({
           new (manager: Manager): T;
         })
       | string
-  ): Promise<T | null> {
+  ): T {
     if (typeof type === "string") {
       for (let module of this.modules) {
         if (module.constructor.name === type) {
@@ -252,20 +278,20 @@ export class Session {
     }
     try {
       const moduleSrc = this.manager.getModuleSync(type);
-      if (!moduleSrc) return null;
+      if (!moduleSrc) throw("Module not found");
       const module = Object.assign(moduleSrc) as T;
       module.setSession(this);
-      if (module.onStartSession) await module.onStartSession();
       this.modules.push(module);
       return module;
     } catch (e) {
-      return null;
+      throw("Module not found");
     }
   }
   public async releaseModules(): Promise<void> {
     for (let module of this.modules) {
       if (module.onEndSession) await module.onEndSession();
     }
+    this.modules = [];
   }
   public async request(): Promise<void> {
     var p = [];

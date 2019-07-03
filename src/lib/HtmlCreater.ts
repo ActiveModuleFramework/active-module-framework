@@ -12,21 +12,60 @@ interface FileInfo {
   date: Date;
 }
 
+/**
+ *トップページ用HTML作成クラス
+ *
+ * @export
+ * @class HtmlCreater
+ */
 export class HtmlCreater {
   private status:number = 200;
   private jsdom?: JSDOM;
   private links: string[] = [];
   private baseUrl?: string;
   private req?: express.Request;
+  /**
+   *DOM操作用インスタンスの取得
+   *
+   * @returns {JSDOM}
+   * @memberof HtmlCreater
+   */
   public getDom(): JSDOM {
     return this.jsdom as JSDOM;
   }
+  /**
+   *documentインスタンスの取得
+   *
+   * @returns {Document}
+   * @memberof HtmlCreater
+   */
   public getDocument(): Document {
     return this.getDom().window.document;
   }
+  /**
+   *Requestインスタンスの取得
+   *
+   * @returns {express.Request}
+   * @memberof HtmlCreater
+   */
   public getRequest(): express.Request {
     return this.req as express.Request;
   }
+  /**
+   *HTMLデータの出力
+   *
+   * @param {express.Request} req
+   * @param {express.Response} res
+   * @param {string} baseUrl 基本URL
+   * @param {string} rootPath データ取得元URL
+   * @param {string} indexPath HTMLテンプレートデータのパス
+   * @param {string[]} cssPath 自動ロード用スタイルシートのパス
+   * @param {string[]} jsPath 自動ロード用JavaScriptのパス
+   * @param {string[]} priorityJs 優先JavaScriptの名前
+   * @param {Module[]} modules モジュールリスト
+   * @returns {Promise<boolean>}
+   * @memberof HtmlCreater
+   */
   public async output(
     req: express.Request,
     res: express.Response,
@@ -70,14 +109,21 @@ export class HtmlCreater {
     if (this.jsdom){
       res.write("<!DOCTYPE html>\n");
       res.end(this.jsdom.window.document.documentElement.outerHTML);
-    }
+    }else
+      res.end();
     return true;
   }
+  /**
+   *ステータスの設定
+   *
+   * @param {number} status
+   * @memberof HtmlCreater
+   */
   public setStatus(status:number){
     this.status = status;
   }
 
-  public async openTemplate(indexPath: string): Promise<boolean> {
+  private async openTemplate(indexPath: string): Promise<boolean> {
     try {
       const jsdom = await JSDOM.fromFile(indexPath);
       this.jsdom = jsdom;
@@ -93,7 +139,7 @@ export class HtmlCreater {
       links.push(`<${baseUrl}${file}>;rel=preload;as=${style};`);
     }
   }
-  public addScript(files: FileInfo[]): void {
+  private addScript(files: FileInfo[]): void {
     const jsdom = this.jsdom;
     if (!jsdom) return;
     const document = jsdom.window.document;
@@ -105,7 +151,7 @@ export class HtmlCreater {
       head.appendChild(node);
     }
   }
-  public addCSS(files: FileInfo[]): void {
+  private addCSS(files: FileInfo[]): void {
     const jsdom = this.jsdom;
     if (!jsdom) return;
     const document = jsdom.window.document;
@@ -117,7 +163,7 @@ export class HtmlCreater {
       head.appendChild(node);
     }
   }
-  public getFileInfo(
+  private getFileInfo(
     rootPath: string,
     srcPath: string[],
     type: string
@@ -141,7 +187,7 @@ export class HtmlCreater {
     return fileInfos;
   }
   //ファイル名に日付情報を追加
-  public addDateParam(files: FileInfo[]): void {
+  private addDateParam(files: FileInfo[]): void {
     for (const file of files) {
       const date = file.date;
       file.name += sprintf(
