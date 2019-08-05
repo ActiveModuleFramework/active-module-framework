@@ -3,6 +3,7 @@ import { Session } from "./Session";
 import { LocalDB } from "./LocalDB";
 import { HtmlCreater } from "./HtmlCreater";
 import * as express from "express";
+import * as typeorm from "typeorm";
 
 export interface ModuleInfo {
   className?: string;
@@ -27,7 +28,9 @@ export class Module<T extends ModuleMap = ModuleMap> {
   public static Module: boolean = true;
   private manager: Manager;
   private session: Session | null = null;
-
+  public static getLocalEntitys():unknown[]{
+    return []
+  }
   /**
    *モジュールの情報を返す
    *モジュール追加時にオーバライドして情報を書き換える
@@ -139,6 +142,13 @@ export class Module<T extends ModuleMap = ModuleMap> {
   public async onEndSession?(): Promise<void>;
 
   /**
+   *テストモード時に初期化後に呼び出される
+   *
+   * @returns {Promise<void>}
+   * @memberof Module
+   */
+  public async onTest?(): Promise<void>;
+  /**
    *
    *
    * @returns {Manager}
@@ -185,15 +195,6 @@ export class Module<T extends ModuleMap = ModuleMap> {
   public setReturn(flag:boolean){
     if(this.session)
       this.session.setDefaultReturn(flag);
-  }
-  /**
-   *
-   *
-   * @returns {LocalDB}
-   * @memberof Module
-   */
-  public getLocalDB(): LocalDB {
-    return this.manager.getLocalDB();
   }
   /**
    *
@@ -256,6 +257,9 @@ export class Module<T extends ModuleMap = ModuleMap> {
   public async onCreateModule(): Promise<boolean> {
     return true;
   }
+  public async onCreatedModule(): Promise<boolean> {
+    return true;
+  }
   /**
    *
    *
@@ -278,7 +282,7 @@ export class Module<T extends ModuleMap = ModuleMap> {
    */
   public getModule<T extends Module>(constructor: {
     new (manager: Manager): T;
-  }): Promise<T | null> {
+  }): Promise<T> {
     return this.manager.getModule(constructor);
   }
 
@@ -322,5 +326,8 @@ export class Module<T extends ModuleMap = ModuleMap> {
    */
   public setDefaultReturn(flag:boolean){
     this.getSession().setDefaultReturn(flag);
+  }
+  public getLocalDB(){
+    return this.manager.getLocalDB();
   }
 }

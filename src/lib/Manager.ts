@@ -42,6 +42,7 @@ export interface ManagerParams {
   cluster?: number;
   debug?: boolean;
   listen: number | string;
+  test?: boolean;
   listened?: (port: string | number) => void;
 }
 interface AdapterFormat {
@@ -62,11 +63,13 @@ interface AdapterFormat {
  * @returns {Promise<void>}
  */
 export function Sleep(timeout: number): Promise<void> {
-  return new Promise((resolv): void => {
-    setTimeout((): void => {
-      resolv();
-    }, timeout);
-  });
+  return new Promise(
+    (resolv): void => {
+      setTimeout((): void => {
+        resolv();
+      }, timeout);
+    }
+  );
 }
 /**
  *フレームワーク総合管理用クラス
@@ -78,9 +81,9 @@ export class Manager {
   private debug?: boolean;
   private localDB: LocalDB = new LocalDB();
   private stderr: string = "";
+  private modulesList: Module[] = [];
   private modulesInstance: { [key: string]: Module } = {};
   private modulesType: { [key: string]: typeof Module } = {};
-  private express?: express.Express;
   private static initFlag = false;
   private commands: {
     [key: string]: (req: express.Request, res: express.Response) => void;
@@ -138,7 +141,7 @@ export class Manager {
     ) {
       this.output("親プロセス起動");
       cluster.on("exit", async (worker, code, signal) => {
-        console.log(
+        this.output(
           "Worker %d died with code/signal %s. Restarting worker...",
           worker.process.pid,
           signal || code
@@ -158,15 +161,12 @@ export class Manager {
       this.debug = params.debug;
       this.output("--- Start Manager");
       //エラーメッセージをキャプチャ
-      capcon.startCapture(process.stderr, (stderr: unknown): void => {
-        this.stderr += stderr;
-      });
-      //ローカルDBを開く
-      if (!(await this.localDB.open(params.localDBPath))) {
-        // eslint-disable-next-line no-console
-        console.error("ローカルDBオープンエラー:%s", params.localDBPath);
-        process.exit(-10);
-      }
+      capcon.startCapture(
+        process.stderr,
+        (stderr: unknown): void => {
+          this.stderr += stderr;
+        }
+      );
 
       //モジュールを読み出す
       const modulesType = this.loadModule(params.modulePath);
@@ -177,9 +177,28 @@ export class Manager {
         if (!(await this.getModule(name))) process.exit(-10);
       }
 
+      //ローカルDBを開く
+      if (!(await this.localDB.open(params.localDBPath))) {
+        // eslint-disable-next-line no-console
+        console.error("ローカルDBオープンエラー:%s", params.localDBPath);
+        process.exit(-10);
+      }
+
+      //モジュールの初期化2
+      for (const m of this.modulesList) {
+        if (m.onCreatedModule) await m.onCreatedModule();
+      }
+
       //Expressの初期化
       this.initExpress(params);
       Manager.initFlag = true;
+
+      if (params.test) {
+        //モジュールのテスト
+        for (const m of Object.values(this.modulesInstance)) {
+          if (m.onTest) m.onTest();
+        }
+      }
     }
     return true;
   }
@@ -226,23 +245,25 @@ export class Manager {
    */
   public async getModule<T extends Module>(
     type: string | { new (manager: Manager): T }
-  ): Promise<T | null> {
+  ): Promise<T> {
     const modules = this.modulesInstance;
     let name;
     let module;
     if (typeof type === "string") name = type;
     else name = type.name;
-    module = this.modulesInstance[name];
+    module = modules[name];
     if (module) return module as T;
     let constructor = this.modulesType[name];
-    if (constructor == null || !("Module" in constructor)) return null;
+    if (constructor == null || !("Module" in constructor))
+      throw "getModule error";
     module = new constructor(this);
     modules[name] = module;
 
     const info = constructor.getModuleInfo();
     this.output("init: %s", JSON.stringify(info));
     //初期化に失敗したらnullを返す
-    if (!(await module.onCreateModule())) return null;
+    if (!(await module.onCreateModule())) throw "Module Create Error";
+    this.modulesList.push(module);
     return module as T;
   }
 
@@ -378,28 +399,34 @@ export class Manager {
 
     if (port) {
       //ソケットの待ち受け設定
-      exp.listen(port, (): void => {
-        this.output("localhost:%d", port);
-        if (params.listened) params.listened(port);
-      });
+      exp.listen(
+        port,
+        (): void => {
+          this.output("localhost:%d", port);
+          if (params.listened) params.listened(port);
+        }
+      );
     } else {
       const listen = (flag: boolean) => {
         //ソケットの待ち受け設定
-        exp.listen(path, (): void => {
-          this.output(path);
-          try {
-            fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
-            if (params.listened) params.listened(path);
-          } catch (e) {
-            //初回かどうか識別
-            if (flag) {
-              //ソケットファイルの削除
-              this.removeSock(path);
-              //リトライ
-              listen(false);
+        exp.listen(
+          path,
+          (): void => {
+            this.output(path);
+            try {
+              fs.chmodSync(path, "666"); //ドメインソケットのアクセス権を設定
+              if (params.listened) params.listened(path);
+            } catch (e) {
+              //初回かどうか識別
+              if (flag) {
+                //ソケットファイルの削除
+                this.removeSock(path);
+                //リトライ
+                listen(false);
+              }
             }
           }
-        }); //ソケットの待ち受け設定
+        ); //ソケットの待ち受け設定
       };
       listen(true);
     }
@@ -470,15 +497,18 @@ export class Manager {
         .on("data", function(v: string): void {
           postData += v;
         })
-        .on("end", (): void => {
-          try {
-            const values = JSON.parse(postData);
-            this.excute(res, values);
-          } catch (e) {
-            res.status(500);
-            res.end("500 error");
+        .on(
+          "end",
+          (): void => {
+            try {
+              const values = JSON.parse(postData);
+              this.excute(res, values);
+            } catch (e) {
+              res.status(500);
+              res.end("500 error");
+            }
           }
-        });
+        );
     }
   }
 
@@ -541,8 +571,10 @@ export class Manager {
         }
         const className = name[0];
         //クラスインスタンスを取得
-        let classPt = await session.getModule(className);
-        if (classPt === null) {
+        let classPt = null;
+        try{
+        classPt = await session.getModule(className);
+        }catch{
           result.error = util.format("クラスが存在しない: %s", func.function);
           continue;
         }
