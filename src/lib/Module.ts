@@ -3,7 +3,6 @@ import { Session } from "./Session";
 import { LocalDB } from "./LocalDB";
 import { HtmlCreater } from "./HtmlCreater";
 import * as express from "express";
-import * as typeorm from "typeorm";
 
 export interface ModuleInfo {
   className?: string;

@@ -1,6 +1,6 @@
 {
   "name": "active-module-framework",
-  "version": "0.1.02",
+  "version": "0.1.03",
   "description": "モジュール式WebAPIフレームワーク",
   "keywords": [],
   "private": false,
@@ -9,29 +9,30 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "init-amf": "bin/init-amf.js"
+    "init-amf": "bin/init.js"
   },
   "dependencies": {
-    "@types/express": "^4.17.0",
-    "capture-console": "^1.0.1",
-    "express": "^4.17.1",
-    "fs-extra": "^8.1.0",
-    "javascript-window-framework": "^0.1.5",
-    "jsdom": "^15.1.1",
-    "parse5": "^5.1.0",
-    "sprintf": "^0.1.5",
-    "sqlite3": "^4.0.9",
-    "typeorm": "^0.2.18"
+    "@types/express": "~4.17.1",
+    "@types/jsdom": "~12.2.4",
+    "capture-console": "~1.0.1",
+    "express": "~4.17.1",
+    "fs-extra": "~8.1.0",
+    "jsdom": "~15.1.1",
+    "parse5": "~5.1.0",
+    "sprintf-js": "^1.1.2",
+    "sqlite3": "~4.1.0",
+    "typeorm": "~0.2.19",
+    "browser-sync": "^2.26.7",
+    "connect-browser-sync": "^2.1.0"
   },
   "devDependencies": {
-    "@types/sqlite3": "^3.1.5",
-    "@types/jsdom": "^12.2.4",
-    "@types/capture-console": "^1.0.0",
-    "@types/express": "^4.17.0",
-    "@types/node": "^12.6.9",
-    "@types/sha256": "^0.2.0",
-    "@types/sprintf": "^0.1.0",
-    "@types/uuid": "^3.4.5"
+    "@types/capture-console": "~1.0.0",
+    "@types/express": "~4.17.1",
+    "@types/node": "~12.7.5",
+    "@types/sha256": "~0.2.0",
+    "@types/sprintf-js": "^1.1.2",
+    "@types/sqlite3": "~3.1.5",
+    "@types/uuid": "~3.4.5"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

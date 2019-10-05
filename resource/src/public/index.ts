@@ -1,4 +1,4 @@
-import * as JWF from "javascript-window-framework";
+import * as JWF from "@jswf/core";
 
 //ページ読み込み時に実行する処理を設定
 addEventListener("DOMContentLoaded", Main)
